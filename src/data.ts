@@ -11,7 +11,7 @@ export const navItems: NavItem[] = [
   { id: 'dashboard', label: '總覽儀表板', icon: 'home' },
   { id: 'content', label: '教學內容生成', icon: 'doc' },
   { id: 'analytics', label: '學習數據中心', icon: 'chart' },
-  { id: 'exam', label: 'AI 考試系統', icon: 'exam' },
+  { id: 'exam', label: 'AI 考試系統 v3.0', icon: 'exam' },
   { id: 'essay', label: '作文批改系統 v2.2', icon: 'pen' },
   { id: 'resource', label: '教學資源生成 v3.3', icon: 'layers' },
   { id: 'classroom', label: '課堂管理系統', icon: 'board' },
@@ -104,17 +104,17 @@ export interface EngineModule {
   accent: string
 }
 
-// The 5 surrounding cards in the central engine
+// 中央引擎周圍 4 張卡（2+2）。已合併重複的「教學資源生成」為單一張。
 export const engineModules: EngineModule[] = [
-  { id: 'gen', title: '教學資源生成器', desc: 'PPT · 資訊圖表 · 影片 · Podcast', cta: '開始生成', icon: 'sparkles', accent: '#3b82f6' },
+  { id: 'resource', title: '教學資源生成', badge: 'v3.3', desc: 'PPT · 資訊圖表 · 影片 · Podcast', cta: '開始生成', icon: 'sparkles', accent: '#3b82f6' },
+  { id: 'exam', title: 'AI 考試生成器', badge: 'v3.0', desc: '六合一試卷包 · 素養命題', cta: '創建考試', icon: 'exam', accent: '#a855f7' },
   { id: 'analytics', title: '學習數據分析中心', desc: '即時學習分析與洞察', cta: '查看分析', icon: 'chart', accent: '#22d3ee' },
-  { id: 'exam', title: 'AI 考試生成器', desc: '智能生成各類型試題', cta: '創建考試', icon: 'exam', accent: '#a855f7' },
   { id: 'essay', title: '作文批改系統', badge: 'v2.2', desc: 'AI 智能批改與評分', cta: '開始批改', icon: 'pen', accent: '#ec4899' },
-  { id: 'resource', title: '教學資源生成', badge: 'v3.3', desc: '智能生成各類教學資源', cta: '開始生成', icon: 'layers', accent: '#34d399' },
 ]
 
 export interface QuickAction {
   id: string
+  target: string // 點擊後導向的 nav/page id
   title: string
   badge?: string
   desc: string
@@ -122,12 +122,13 @@ export interface QuickAction {
   accent: string
 }
 
+// 每個 quick action 帶 target = 對應的頁面/nav id，點擊即導向真實頁面
 export const quickActions: QuickAction[] = [
-  { id: 'q-content', title: '教學內容生成器', desc: '一鍵生成 PPT、資訊圖表、影片、Podcast 等教學內容', icon: 'sparkles', accent: '#ef4444' },
-  { id: 'q-exam', title: 'AI 考試系統', desc: '智能生成試題、試卷，自動評分與分析', icon: 'exam', accent: '#3b82f6' },
-  { id: 'q-essay', title: '作文批改系統 v2.2', desc: 'AI 智能批改作文，提供細緻評語與建議', icon: 'pen', accent: '#a855f7' },
-  { id: 'q-resource', title: '教學資源生成 v3.3', desc: '智能生成各類教學資源，提升教學效率', icon: 'layers', accent: '#22d3ee' },
-  { id: 'q-classroom', title: '課堂管理系統', desc: '班級管理、作業布置、成績管理一站式服務', icon: 'board', accent: '#34d399' },
+  { id: 'q-resource', target: 'resource', title: '教學資源生成 v3.3', desc: '一鍵生成 PPT、資訊圖表、影片、Podcast 等教學內容', icon: 'sparkles', accent: '#3b82f6' },
+  { id: 'q-exam', target: 'exam', title: 'AI 考試系統 v3.0', desc: '六合一試卷包：素養命題、自動評分與雙向細目表', icon: 'exam', accent: '#a855f7' },
+  { id: 'q-essay', target: 'essay', title: '作文批改系統 v2.2', desc: 'AI 智能批改作文，提供細緻評語與建議', icon: 'pen', accent: '#ec4899' },
+  { id: 'q-students', target: 'students', title: '學生管理', desc: '建立班級與學生名單，維護學習數據', icon: 'users', accent: '#22d3ee' },
+  { id: 'q-classroom', target: 'classroom', title: '課堂管理系統', desc: '班級管理、作業布置、成績管理一站式服務', icon: 'board', accent: '#34d399' },
 ]
 
 export interface Notification {

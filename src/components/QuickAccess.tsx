@@ -1,10 +1,7 @@
 import { quickActions } from '../data'
 import { Icon } from './Icons'
-import { useToast } from './toast-context'
 
-export function QuickAccess() {
-  const toast = useToast()
-
+export function QuickAccess({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <section className="panel rounded-2xl p-5">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-white">
@@ -25,14 +22,11 @@ export function QuickAccess() {
               >
                 <Icon name={a.icon} width={18} height={18} />
               </span>
-              {a.badge && (
-                <span className="rounded px-1.5 py-0.5 text-[9px] font-bold text-slate-400">{a.badge}</span>
-              )}
             </div>
             <h4 className="mb-1 text-sm font-bold text-white">{a.title}</h4>
             <p className="mb-3 flex-1 text-[11px] leading-relaxed text-slate-400">{a.desc}</p>
             <button
-              onClick={() => toast(`啟動「${a.title}」`)}
+              onClick={() => onOpen(a.target)}
               className="flex items-center justify-between rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:brightness-125"
               style={{ borderColor: `${a.accent}44`, color: a.accent, background: `${a.accent}11` }}
             >
