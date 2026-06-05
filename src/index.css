@@ -1,0 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Orbitron:wght@600;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #060b1c;
+  color: #e2e8f0;
+  font-family: 'Noto Sans TC', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+@layer components {
+  /* Glassmorphism panel */
+  .panel {
+    @apply relative rounded-2xl border border-cyan-400/15 bg-white/[0.03] backdrop-blur-md;
+    background-image: linear-gradient(
+      160deg,
+      rgba(59, 130, 246, 0.08),
+      rgba(6, 11, 28, 0.2)
+    );
+  }
+
+  .panel-hover {
+    @apply transition-all duration-300 hover:border-cyan-400/50 hover:shadow-glow hover:-translate-y-0.5;
+  }
+
+  .neon-text {
+    text-shadow: 0 0 12px rgba(61, 217, 255, 0.6);
+  }
+
+  .orbitron {
+    font-family: 'Orbitron', 'Noto Sans TC', sans-serif;
+    letter-spacing: 0.04em;
+  }
+
+  /* Corner brackets for sci-fi cards */
+  .bracket::before,
+  .bracket::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: rgba(61, 217, 255, 0.6);
+    pointer-events: none;
+  }
+  .bracket::before {
+    top: 8px;
+    left: 8px;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+  .bracket::after {
+    bottom: 8px;
+    right: 8px;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(61, 217, 255, 0.25);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(61, 217, 255, 0.45);
+}
+
+/* Animated background grid */
+.bg-grid {
+  background-color: #060b1c;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(29, 78, 216, 0.18), transparent 70%),
+    linear-gradient(rgba(61, 217, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(61, 217, 255, 0.06) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+}
