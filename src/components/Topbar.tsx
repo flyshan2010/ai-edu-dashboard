@@ -5,21 +5,36 @@ import { useToast } from './toast-context'
 import { useAppStore } from '../store/useAppStore'
 
 function CloudBadge() {
-  const { cloudStatus } = useAppStore()
+  const { cloudStatus, user, signOutUser } = useAppStore()
   const map = {
     connecting: { label: '連線中…', color: '#fbbf24', dot: 'bg-neon-amber animate-pulse' },
+    auth: { label: '待登入', color: '#fbbf24', dot: 'bg-neon-amber' },
     cloud: { label: '雲端同步', color: '#34d399', dot: 'bg-neon-green' },
     local: { label: '本機模式', color: '#94a3b8', dot: 'bg-slate-400' },
   }[cloudStatus]
   return (
-    <span
-      className="hidden items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] sm:flex"
-      style={{ borderColor: `${map.color}55`, color: map.color, background: `${map.color}11` }}
-      title="班級／學生資料儲存狀態"
-    >
-      <span className={`h-2 w-2 rounded-full ${map.dot}`} />
-      {map.label}
-    </span>
+    <div className="hidden items-center gap-2 sm:flex">
+      <span
+        className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px]"
+        style={{ borderColor: `${map.color}55`, color: map.color, background: `${map.color}11` }}
+        title={user?.email ? `已登入：${user.email}` : '班級／學生資料儲存狀態'}
+      >
+        <span className={`h-2 w-2 rounded-full ${map.dot}`} />
+        {map.label}
+        {cloudStatus === 'cloud' && user?.email && (
+          <span className="ml-1 max-w-[120px] truncate text-slate-400">· {user.email}</span>
+        )}
+      </span>
+      {cloudStatus === 'cloud' && (
+        <button
+          onClick={() => void signOutUser()}
+          className="rounded-lg border border-cyan-400/15 px-2 py-1.5 text-[11px] text-slate-400 transition hover:border-neon-pink/40 hover:text-neon-pink"
+          title="登出"
+        >
+          登出
+        </button>
+      )}
+    </div>
   )
 }
 

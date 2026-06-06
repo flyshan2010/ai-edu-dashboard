@@ -20,11 +20,21 @@ export interface Student {
   subjects: Record<Subject, number> // 各科成績 0-100
 }
 
-// connecting：嘗試連線中；cloud：已連 Firestore 雲端同步；local：退回本機 localStorage
-export type CloudStatus = 'connecting' | 'cloud' | 'local'
+// connecting：初始化中；auth：待 Email 登入；cloud：已登入並雲端同步；local：離線本機模式
+export type CloudStatus = 'connecting' | 'auth' | 'cloud' | 'local'
+
+export interface AuthUser {
+  uid: string
+  email: string | null
+}
 
 export interface AppStoreValue {
   cloudStatus: CloudStatus
+  user: AuthUser | null
+  signIn: (email: string, password: string) => Promise<void>
+  register: (email: string, password: string) => Promise<void>
+  signOutUser: () => Promise<void>
+  useLocalMode: () => void
   classes: ClassInfo[]
   students: Student[]
   selectedClassId: string | null

@@ -7,17 +7,23 @@ import { StatsPanel } from './components/StatsPanel'
 import { TrendPanel } from './components/TrendPanel'
 import { QuickAccess } from './components/QuickAccess'
 import { ToastProvider } from './components/Toast'
+import { AuthGate, Splash } from './components/AuthGate'
 import { AppStoreProvider } from './store/AppStoreProvider'
+import { useAppStore } from './store/useAppStore'
 import { StudentsPage } from './pages/StudentsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { ClassroomPage } from './pages/ClassroomPage'
 import { FeaturePage } from './pages/FeaturePage'
 import { featureConfigs } from './pages/featureConfigs'
 
-function App() {
+function Shell() {
+  const { cloudStatus } = useAppStore()
   const [active, setActive] = useState('dashboard')
   const go = (id: string) => setActive(id)
   const toStudents = () => setActive('students')
+
+  if (cloudStatus === 'connecting') return <Splash />
+  if (cloudStatus === 'auth') return <AuthGate />
 
   function renderPage() {
     switch (active) {
@@ -62,15 +68,21 @@ function App() {
   }
 
   return (
+    <div className="bg-grid flex h-screen w-screen overflow-hidden text-slate-200">
+      <Sidebar active={active} onSelect={setActive} />
+      <main className="flex flex-1 flex-col overflow-hidden">
+        <Topbar />
+        <div className="flex-1 overflow-y-auto px-6 pb-6">{renderPage()}</div>
+      </main>
+    </div>
+  )
+}
+
+function App() {
+  return (
     <AppStoreProvider>
       <ToastProvider>
-        <div className="bg-grid flex h-screen w-screen overflow-hidden text-slate-200">
-          <Sidebar active={active} onSelect={setActive} />
-          <main className="flex flex-1 flex-col overflow-hidden">
-            <Topbar />
-            <div className="flex-1 overflow-y-auto px-6 pb-6">{renderPage()}</div>
-          </main>
-        </div>
+        <Shell />
       </ToastProvider>
     </AppStoreProvider>
   )

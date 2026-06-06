@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth'
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth'
 import {
   collection,
   deleteDoc,
@@ -16,6 +21,7 @@ import { auth, db } from '../firebase'
 import {
   AppStoreContext,
   SUBJECTS,
+  type AuthUser,
   type ClassInfo,
   type CloudStatus,
   type Student,
@@ -38,7 +44,6 @@ function uid(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${idSeq}`
 }
 
-// 去掉 id 後的學生文件資料（寫入 Firestore 用）
 function studentToDoc(s: Student): Omit<Student, 'id'> {
   return {
     classId: s.classId,
@@ -110,17 +115,23 @@ function loadSelected(): string | null {
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [seed] = useState<Persisted>(loadLocal)
   const [cloudStatus, setCloudStatus] = useState<CloudStatus>('connecting')
-  const [classes, setClasses] = useState<ClassInfo[]>(seed.classes)
-  const [students, setStudents] = useState<Student[]>(seed.students)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [classes, setClasses] = useState<ClassInfo[]>([])
+  const [students, setStudents] = useState<Student[]>([])
   const [selectedClassId, setSelectedClassIdState] = useState<string | null>(
     loadSelected() ?? seed.selectedClassId,
   )
 
-  // mode ref：避免 CRUD 閉包讀到舊值（在 effect 中同步，避免 render 期間寫 ref）
   const modeRef = useRef<CloudStatus>('connecting')
   useEffect(() => {
     modeRef.current = cloudStatus
   }, [cloudStatus])
+
+  const subsRef = useRef<Array<() => void>>([])
+  const clearSubs = () => {
+    subsRef.current.forEach((u) => u())
+    subsRef.current = []
+  }
 
   const setSelectedClassId = useCallback((id: string | null) => {
     setSelectedClassIdState(id)
@@ -132,63 +143,58 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // ── 嘗試連線 Firebase；失敗則退回本機 ──
-  useEffect(() => {
-    let unsubClasses: (() => void) | null = null
-    let unsubStudents: (() => void) | null = null
-    let cancelled = false
-
-    async function seedCloudIfEmpty() {
-      try {
-        const seeded = localStorage.getItem(LS_SEEDED)
-        if (seeded) return
-        const [cSnap, sSnap] = await Promise.all([
-          getDocs(collection(db, 'classes')),
-          getDocs(collection(db, 'students')),
-        ])
-        if (cSnap.empty && sSnap.empty) {
-          const d = demoData()
-          const batch = writeBatch(db)
-          d.classes.forEach((c) => batch.set(doc(db, 'classes', c.id), { name: c.name, grade: c.grade }))
-          d.students.forEach((s) => batch.set(doc(db, 'students', s.id), studentToDoc(s)))
-          await batch.commit()
-        }
-        localStorage.setItem(LS_SEEDED, '1')
-      } catch {
-        /* 種子失敗不致命 */
+  async function seedCloudIfEmpty() {
+    try {
+      if (localStorage.getItem(LS_SEEDED)) return
+      const [cSnap, sSnap] = await Promise.all([
+        getDocs(collection(db, 'classes')),
+        getDocs(collection(db, 'students')),
+      ])
+      if (cSnap.empty && sSnap.empty) {
+        const d = demoData()
+        const batch = writeBatch(db)
+        d.classes.forEach((c) => batch.set(doc(db, 'classes', c.id), { name: c.name, grade: c.grade }))
+        d.students.forEach((s) => batch.set(doc(db, 'students', s.id), studentToDoc(s)))
+        await batch.commit()
       }
+      localStorage.setItem(LS_SEEDED, '1')
+    } catch {
+      /* non-fatal */
     }
+  }
 
-    const unsubAuth = onAuthStateChanged(auth, async (user) => {
-      if (cancelled) return
-      if (user) {
+  // ── 監聽登入狀態 ──
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        setUser({ uid: fbUser.uid, email: fbUser.email })
         await seedCloudIfEmpty()
-        if (cancelled) return
-        // 即時訂閱
-        unsubClasses = onSnapshot(collection(db, 'classes'), (snap) => {
-          setClasses(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ClassInfo, 'id'>) })))
-        })
-        unsubStudents = onSnapshot(collection(db, 'students'), (snap) => {
-          setStudents(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Student, 'id'>) })))
-        })
+        clearSubs()
+        subsRef.current.push(
+          onSnapshot(collection(db, 'classes'), (snap) => {
+            setClasses(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ClassInfo, 'id'>) })))
+          }),
+        )
+        subsRef.current.push(
+          onSnapshot(collection(db, 'students'), (snap) => {
+            setStudents(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Student, 'id'>) })))
+          }),
+        )
         setCloudStatus('cloud')
+      } else {
+        setUser(null)
+        clearSubs()
+        // 若使用者選了本機模式則維持，否則進入待登入
+        setCloudStatus((prev) => (prev === 'local' ? 'local' : 'auth'))
       }
     })
-
-    signInAnonymously(auth).catch(() => {
-      // 匿名登入未啟用或離線 → 本機模式
-      if (!cancelled) setCloudStatus('local')
-    })
-
     return () => {
-      cancelled = true
-      unsubAuth()
-      unsubClasses?.()
-      unsubStudents?.()
+      unsub()
+      clearSubs()
     }
   }, [])
 
-  // ── 本機模式：持久化到 localStorage ──
+  // ── 本機模式持久化 ──
   useEffect(() => {
     if (cloudStatus !== 'local') return
     try {
@@ -200,7 +206,24 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const isCloud = () => modeRef.current === 'cloud'
 
-  // ── CRUD（雲端走 Firestore；本機走 state）──
+  // ── Auth 操作 ──
+  const signIn = useCallback(async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password)
+  }, [])
+  const register = useCallback(async (email: string, password: string) => {
+    await createUserWithEmailAndPassword(auth, email, password)
+  }, [])
+  const signOutUser = useCallback(async () => {
+    await signOut(auth)
+  }, [])
+  const useLocalMode = useCallback(() => {
+    const local = loadLocal()
+    setClasses(local.classes)
+    setStudents(local.students)
+    setCloudStatus('local')
+  }, [])
+
+  // ── CRUD ──
   const addClass = useCallback((c: Omit<ClassInfo, 'id'>) => {
     if (isCloud()) {
       const ref = doc(collection(db, 'classes'))
@@ -295,6 +318,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       cloudStatus,
+      user,
+      signIn,
+      register,
+      signOutUser,
+      useLocalMode,
       classes,
       students,
       selectedClassId,
@@ -307,7 +335,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       removeStudent,
       resetDemo,
     }),
-    [cloudStatus, classes, students, selectedClassId, setSelectedClassId, addClass, updateClass, removeClass, addStudent, updateStudent, removeStudent, resetDemo],
+    [cloudStatus, user, signIn, register, signOutUser, useLocalMode, classes, students, selectedClassId, setSelectedClassId, addClass, updateClass, removeClass, addStudent, updateStudent, removeStudent, resetDemo],
   )
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>
