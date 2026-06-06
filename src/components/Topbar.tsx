@@ -119,7 +119,7 @@ export function Topbar({ active, onSelect }: TopbarProps) {
             )}
           </button>
           {openNotif && (
-            <div className="panel bracket absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-2xl border-cyan-400/30 p-2 shadow-glow">
+            <div className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-2xl border border-cyan-400/30 p-2 shadow-glow backdrop-blur-xl" style={{ background: 'rgba(9,16,38,0.98)' }}>
               <div className="flex items-center justify-between px-3 py-2">
                 <span className="text-sm font-bold text-white">通知中心</span>
                 <button onClick={() => setNotifs((p) => p.map((n) => ({ ...n, unread: false })))} className="text-[11px] text-cyan-glow hover:underline">全部標為已讀</button>
@@ -155,7 +155,7 @@ export function Topbar({ active, onSelect }: TopbarProps) {
             <Icon name="arrow" width={13} height={13} className="rotate-90 text-slate-500" />
           </button>
           {openUser && (
-            <div className="panel absolute right-0 top-12 z-50 w-60 rounded-2xl border-cyan-400/30 p-2 shadow-glow">
+            <div className="absolute right-0 top-12 z-50 w-60 rounded-2xl border border-cyan-400/30 p-2 shadow-glow backdrop-blur-xl" style={{ background: 'rgba(9,16,38,0.98)' }}>
               <div className="border-b border-cyan-400/10 px-3 py-2">
                 <p className="text-xs font-semibold text-white">{teacher.name} <span className="font-normal text-slate-400">{teacher.title}</span></p>
                 <p className="truncate text-[11px] text-slate-400">{user?.email ?? '本機模式（未登入）'}</p>
