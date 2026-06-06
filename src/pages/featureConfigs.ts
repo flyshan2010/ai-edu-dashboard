@@ -96,8 +96,8 @@ export const featureConfigs: Record<string, FeatureConfig> = {
       resultTitle: '批改結果（示範）',
       makeResult: (v) => [
         `題目：「${v.title}」 文體：${v.genre === '自動判斷' ? '記敘文（自動判斷）' : v.genre}`,
-        '立意取材 ★★★★☆　結構組織 ★★★★☆',
-        '遣詞造句 ★★★☆☆　錯字與格式 ★★★★☆',
+        '立意取材 ★★★★☆ 結構組織 ★★★★☆',
+        '遣詞造句 ★★★☆☆ 錯字與格式 ★★★★☆',
         '總評：情感真摯、層次分明，建議加強譬喻與結尾呼應。',
         '等第：甲上',
       ],
@@ -172,3 +172,50 @@ export const featureConfigs: Record<string, FeatureConfig> = {
 
 // 側邊欄「教學內容生成」沿用資源生成頁
 featureConfigs.content = { ...featureConfigs.resource, id: 'content', title: '教學內容生成' }
+
+featureConfigs.courses = {
+  id: 'courses',
+  title: '我的課程',
+  icon: 'doc',
+  accent: '#3b82f6',
+  tagline: '建立與管理課程、單元與教學進度',
+  highlights: [
+    { icon: 'doc', title: '課程大綱', desc: '依 108 課綱快速建立單元架構與學習目標。' },
+    { icon: 'layers', title: '教材掛載', desc: '把生成的簡報、影片、試卷掛到對應單元。' },
+    { icon: 'pulse', title: '進度追蹤', desc: '掌握各班教學進度與學生學習狀態。' },
+  ],
+  form: {
+    heading: '新建課程',
+    fields: [
+      { key: 'name', label: '課程名稱', placeholder: '例：五年級自然' },
+      { key: 'grade', label: '年段', placeholder: '例：五年級' },
+      { key: 'unit', label: '單元', placeholder: '例：水域環境' },
+    ],
+    submitLabel: '建立課程',
+    resultTitle: '已建立課程（示範）',
+    makeResult: (v) => [`${v.grade}「${v.name}」`, `首個單元：${v.unit}`, '已套用課綱對應指標', '可於我的課程掛載教材'],
+  },
+}
+
+featureConfigs['ai-assistant'] = {
+  id: 'ai-assistant',
+  title: 'AI 助教',
+  icon: 'robot',
+  accent: '#22d3ee',
+  tagline: '隨時提問教學設計、命題建議與班級經營策略',
+  highlights: [
+    { icon: 'sparkles', title: '教學諮詢', desc: '提問教學法、差異化策略，立即得到建議。' },
+    { icon: 'exam', title: '命題協作', desc: '描述需求，協助規劃題型與雙向細目。' },
+    { icon: 'megaphone', title: '親師溝通', desc: '產出家長聯絡簿與溝通話術草稿。' },
+  ],
+  form: {
+    heading: '向 AI 助教提問',
+    fields: [
+      { key: 'topic', label: '主題', type: 'select', options: ['教學設計', '命題建議', '班級經營', '親師溝通'] },
+      { key: 'q', label: '你的問題', type: 'textarea', placeholder: '例：五年級自然「水域環境」如何設計探究式活動？' },
+    ],
+    submitLabel: '送出提問',
+    resultTitle: 'AI 助教回覆（示範）',
+    makeResult: (v) => [`主題：${v.topic}`, '已分析你的問題並產生建議大綱', '1. 引起動機：生活情境提問', '2. 探究活動：分組觀察與紀錄', '3. 形成性評量：素養題 + 後設認知反思'],
+  },
+}

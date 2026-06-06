@@ -5,6 +5,7 @@ export type IconName =
   | 'users' | 'teacher' | 'book' | 'gear' | 'sparkles' | 'clock'
   | 'check' | 'star' | 'pulse' | 'bell' | 'help' | 'search'
   | 'diamond' | 'arrow' | 'ppt' | 'video' | 'mic' | 'close'
+  | 'robot' | 'crown' | 'grid' | 'upload' | 'megaphone' | 'spell' | 'wand'
 
 type P = SVGProps<SVGSVGElement>
 
@@ -46,6 +47,13 @@ const paths: Record<IconName, ReactElement> = {
   video: <><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3z" /></>,
   mic: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></>,
   close: <><path d="M6 6l12 12M18 6 6 18" /></>,
+  robot: <><rect x="5" y="8" width="14" height="11" rx="2" /><path d="M12 8V4M9 4h6" /><circle cx="9.5" cy="13" r="1" /><circle cx="14.5" cy="13" r="1" /><path d="M2 12v3M22 12v3" /></>,
+  crown: <><path d="M3 7l4 4 5-7 5 7 4-4v11H3z" /><path d="M3 18h18" /></>,
+  grid: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
+  upload: <><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></>,
+  megaphone: <><path d="M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1z" /><path d="M14 8a4 4 0 0 1 0 8M17 5a8 8 0 0 1 0 14" /></>,
+  spell: <><path d="M4 18l4-12 4 12M5 14h6" /><path d="M15 18l3-8 3 8M16 15h4" /></>,
+  wand: <><path d="M4 20l11-11M14 6l4 4" /><path d="M16 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" /></>,
 }
 
 export function Icon({ name, ...props }: { name: IconName } & P) {

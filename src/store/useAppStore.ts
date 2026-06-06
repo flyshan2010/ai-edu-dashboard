@@ -28,6 +28,27 @@ export interface AuthUser {
   email: string | null
 }
 
+export interface ExamQuestion {
+  id: string
+  subject: string
+  grade: string
+  topic: string
+  type: string // 選擇/填充/問答…
+  bloom: string
+  stem: string
+  createdAt: number
+}
+
+export interface EssayReview {
+  id: string
+  title: string
+  genre: string
+  studentName: string
+  gradeLevel: string // 等第 甲上/甲/乙…
+  scoreSummary: string
+  createdAt: number
+}
+
 export interface AppStoreValue {
   cloudStatus: CloudStatus
   user: AuthUser | null
@@ -37,6 +58,12 @@ export interface AppStoreValue {
   useLocalMode: () => void
   classes: ClassInfo[]
   students: Student[]
+  examQuestions: ExamQuestion[]
+  essayReviews: EssayReview[]
+  addExamQuestion: (q: Omit<ExamQuestion, 'id'>) => void
+  removeExamQuestion: (id: string) => void
+  addEssayReview: (r: Omit<EssayReview, 'id'>) => void
+  removeEssayReview: (id: string) => void
   selectedClassId: string | null
   setSelectedClassId: (id: string | null) => void
   addClass: (c: Omit<ClassInfo, 'id'>) => string

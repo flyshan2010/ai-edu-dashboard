@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Icon } from '../components/Icons'
 import { useToast } from '../components/toast-context'
 import {
@@ -145,6 +145,56 @@ export function StudentsPage() {
   const setSub = (sub: Subject, v: string) =>
     setForm((f) => ({ ...f, subjects: { ...f.subjects, [sub]: v } }))
 
+  // ── Excel 匯入 / 範本 ──
+  const fileRef = useRef<HTMLInputElement>(null)
+  const num = (v: unknown, max = 100) => Math.max(0, Math.min(max, Number(v) || 0))
+
+  async function downloadTemplate() {
+    const XLSX = await import('xlsx')
+    const header = ['座號', '姓名', '學習時數', '完成率', '活躍度', ...SUBJECTS]
+    const sample = [1, '範例學生', 120, 85, 85, ...SUBJECTS.map(() => 80)]
+    const ws = XLSX.utils.aoa_to_sheet([header, sample])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '學生名單')
+    XLSX.writeFile(wb, '學生名單匯入範本.xlsx')
+    toast('已下載匯入範本')
+  }
+
+  async function handleImport(file: File) {
+    if (!selectedClassId) { toast('請先選擇班級'); return }
+    try {
+      const XLSX = await import('xlsx')
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+      let count = 0
+      let nextSeat = roster.length ? Math.max(...roster.map((s) => s.seatNo)) + 1 : 1
+      for (const row of rows) {
+        const name = String(row['姓名'] ?? '').trim()
+        if (!name) continue
+        const subjects = SUBJECTS.reduce(
+          (acc, sub) => ({ ...acc, [sub]: row[sub] !== '' && row[sub] != null ? num(row[sub]) : 80 }),
+          {} as Record<Subject, number>,
+        )
+        addStudent({
+          classId: selectedClassId,
+          seatNo: row['座號'] !== '' && row['座號'] != null ? num(row['座號'], 999) : nextSeat++,
+          name,
+          studyHours: num(row['學習時數'], 100000),
+          completion: num(row['完成率']),
+          activity: num(row['活躍度']),
+          subjects,
+        })
+        count++
+      }
+      toast(count ? `已匯入 ${count} 位學生` : '未找到有效資料列（需有「姓名」欄）')
+    } catch {
+      toast('匯入失敗：請確認為 .xlsx 檔且欄位正確')
+    }
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
   const inputCls =
     'w-full rounded-lg border border-cyan-400/15 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/50'
 
@@ -220,13 +270,32 @@ export function StudentsPage() {
           <h3 className="text-sm font-bold text-white">
             學生名單{activeClass ? `（${activeClass.name}）` : ''}
           </h3>
-          <button
-            onClick={openAddStudent}
-            disabled={!selectedClassId}
-            className="flex items-center gap-1 rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs font-bold text-cyan-glow transition hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Icon name="sparkles" width={14} height={14} /> 新增學生
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImport(f) }}
+            />
+            <button onClick={downloadTemplate} className="flex items-center gap-1 rounded-lg border border-cyan-400/15 px-3 py-1.5 text-xs text-slate-300 transition hover:border-cyan-400/40 hover:text-cyan-glow">
+              <Icon name="doc" width={14} height={14} /> 下載範本
+            </button>
+            <button
+              onClick={() => { if (!selectedClassId) { toast('請先選擇班級'); return } fileRef.current?.click() }}
+              disabled={!selectedClassId}
+              className="flex items-center gap-1 rounded-lg border border-cyan-400/15 px-3 py-1.5 text-xs text-slate-300 transition hover:border-cyan-400/40 hover:text-cyan-glow disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Icon name="upload" width={14} height={14} /> 匯入 Excel
+            </button>
+            <button
+              onClick={openAddStudent}
+              disabled={!selectedClassId}
+              className="flex items-center gap-1 rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs font-bold text-cyan-glow transition hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Icon name="sparkles" width={14} height={14} /> 新增學生
+            </button>
+          </div>
         </div>
 
         {!selectedClassId ? (

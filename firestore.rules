@@ -25,6 +25,22 @@ service cloud.firestore {
         && request.resource.data.seatNo is number;
     }
 
+    // AI 試題工廠：題庫
+    match /examQuestions/{qId} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && request.resource.data.subject is string
+        && request.resource.data.stem is string;
+    }
+
+    // AI 作文批改：批改記錄
+    match /essayReviews/{rId} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && request.resource.data.title is string
+        && request.resource.data.gradeLevel is string;
+    }
+
     // 其餘路徑一律拒絕
     match /{document=**} {
       allow read, write: if false;

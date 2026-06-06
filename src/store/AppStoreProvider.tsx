@@ -24,6 +24,8 @@ import {
   type AuthUser,
   type ClassInfo,
   type CloudStatus,
+  type EssayReview,
+  type ExamQuestion,
   type Student,
   type Subject,
 } from './useAppStore'
@@ -118,6 +120,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [classes, setClasses] = useState<ClassInfo[]>([])
   const [students, setStudents] = useState<Student[]>([])
+  const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([])
+  const [essayReviews, setEssayReviews] = useState<EssayReview[]>([])
   const [selectedClassId, setSelectedClassIdState] = useState<string | null>(
     loadSelected() ?? seed.selectedClassId,
   )
@@ -178,6 +182,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         subsRef.current.push(
           onSnapshot(collection(db, 'students'), (snap) => {
             setStudents(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Student, 'id'>) })))
+          }),
+        )
+        subsRef.current.push(
+          onSnapshot(collection(db, 'examQuestions'), (snap) => {
+            setExamQuestions(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ExamQuestion, 'id'>) })))
+          }),
+        )
+        subsRef.current.push(
+          onSnapshot(collection(db, 'essayReviews'), (snap) => {
+            setEssayReviews(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<EssayReview, 'id'>) })))
           }),
         )
         setCloudStatus('cloud')
@@ -290,6 +304,35 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setStudents((prev) => prev.filter((s) => s.id !== id))
   }, [])
 
+  const addExamQuestion = useCallback((q: Omit<ExamQuestion, 'id'>) => {
+    if (isCloud()) {
+      void setDoc(doc(collection(db, 'examQuestions')), q)
+      return
+    }
+    setExamQuestions((prev) => [{ ...q, id: uid('q') }, ...prev])
+  }, [])
+  const removeExamQuestion = useCallback((id: string) => {
+    if (isCloud()) {
+      void deleteDoc(doc(db, 'examQuestions', id))
+      return
+    }
+    setExamQuestions((prev) => prev.filter((q) => q.id !== id))
+  }, [])
+  const addEssayReview = useCallback((r: Omit<EssayReview, 'id'>) => {
+    if (isCloud()) {
+      void setDoc(doc(collection(db, 'essayReviews')), r)
+      return
+    }
+    setEssayReviews((prev) => [{ ...r, id: uid('e') }, ...prev])
+  }, [])
+  const removeEssayReview = useCallback((id: string) => {
+    if (isCloud()) {
+      void deleteDoc(doc(db, 'essayReviews', id))
+      return
+    }
+    setEssayReviews((prev) => prev.filter((r) => r.id !== id))
+  }, [])
+
   const resetDemo = useCallback(() => {
     const d = demoData()
     if (isCloud()) {
@@ -325,6 +368,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       useLocalMode,
       classes,
       students,
+      examQuestions,
+      essayReviews,
+      addExamQuestion,
+      removeExamQuestion,
+      addEssayReview,
+      removeEssayReview,
       selectedClassId,
       setSelectedClassId,
       addClass,
@@ -335,7 +384,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       removeStudent,
       resetDemo,
     }),
-    [cloudStatus, user, signIn, register, signOutUser, useLocalMode, classes, students, selectedClassId, setSelectedClassId, addClass, updateClass, removeClass, addStudent, updateStudent, removeStudent, resetDemo],
+    [cloudStatus, user, signIn, register, signOutUser, useLocalMode, classes, students, examQuestions, essayReviews, addExamQuestion, removeExamQuestion, addEssayReview, removeEssayReview, selectedClassId, setSelectedClassId, addClass, updateClass, removeClass, addStudent, updateStudent, removeStudent, resetDemo],
   )
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>
