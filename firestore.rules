@@ -41,6 +41,25 @@ service cloud.firestore {
         && request.resource.data.gradeLevel is string;
     }
 
+    // 教師個人資料：僅本人可寫，登入者可讀
+    match /teachers/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.data.name is string;
+    }
+
+    // 我的課程
+    match /courses/{cId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.resource.data.name is string;
+    }
+
+    // 教學資源庫
+    match /resources/{rId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.resource.data.title is string;
+    }
+
     // 其餘路徑一律拒絕
     match /{document=**} {
       allow read, write: if false;

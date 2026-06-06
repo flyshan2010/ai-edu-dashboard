@@ -49,6 +49,30 @@ export interface EssayReview {
   createdAt: number
 }
 
+export interface TeacherProfile {
+  name: string
+  title: string
+  school: string
+}
+
+export interface Course {
+  id: string
+  name: string
+  grade: string
+  unit: string
+  progress: number // 0-100
+  createdAt: number
+}
+
+export interface ResourceItem {
+  id: string
+  title: string
+  type: string // 簡報/影片/試卷/資訊圖卡/Podcast/批改報告
+  subject: string
+  grade: string
+  createdAt: number
+}
+
 export interface AppStoreValue {
   cloudStatus: CloudStatus
   user: AuthUser | null
@@ -56,14 +80,22 @@ export interface AppStoreValue {
   register: (email: string, password: string) => Promise<void>
   signOutUser: () => Promise<void>
   useLocalMode: () => void
+  teacher: TeacherProfile
+  updateTeacher: (patch: Partial<TeacherProfile>) => void
   classes: ClassInfo[]
   students: Student[]
   examQuestions: ExamQuestion[]
   essayReviews: EssayReview[]
+  courses: Course[]
+  resources: ResourceItem[]
   addExamQuestion: (q: Omit<ExamQuestion, 'id'>) => void
   removeExamQuestion: (id: string) => void
   addEssayReview: (r: Omit<EssayReview, 'id'>) => void
   removeEssayReview: (id: string) => void
+  addCourse: (c: Omit<Course, 'id'>) => void
+  removeCourse: (id: string) => void
+  addResource: (r: Omit<ResourceItem, 'id'>) => void
+  removeResource: (id: string) => void
   selectedClassId: string | null
   setSelectedClassId: (id: string | null) => void
   addClass: (c: Omit<ClassInfo, 'id'>) => string

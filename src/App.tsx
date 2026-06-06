@@ -13,6 +13,12 @@ import { AnalyticsPage } from './pages/AnalyticsPage'
 import { ClassroomPage } from './pages/ClassroomPage'
 import { ExamPage } from './pages/ExamPage'
 import { EssayPage } from './pages/EssayPage'
+import { CoursesPage } from './pages/CoursesPage'
+import { LibraryPage } from './pages/LibraryPage'
+import { ResourcePage } from './pages/ResourcePage'
+import { GradesPage } from './pages/GradesPage'
+import { AssistantPage } from './pages/AssistantPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { FeaturePage } from './pages/FeaturePage'
 import { featureConfigs } from './pages/featureConfigs'
 
@@ -40,14 +46,25 @@ function Shell() {
       case 'students':
         return <StudentsPage />
       case 'analytics':
-      case 'grades':
         return <AnalyticsPage onManage={toStudents} />
+      case 'grades':
+        return <GradesPage onManage={toStudents} />
       case 'classroom':
         return <ClassroomPage onManage={toStudents} />
       case 'exam':
         return <ExamPage />
       case 'essay':
         return <EssayPage />
+      case 'courses':
+        return <CoursesPage />
+      case 'library':
+        return <LibraryPage />
+      case 'resource':
+        return <ResourcePage onOpenLibrary={() => setActive('library')} />
+      case 'ai-assistant':
+        return <AssistantPage />
+      case 'settings':
+        return <SettingsPage />
       default: {
         const cfg = featureConfigs[active]
         if (cfg) return <FeaturePage config={cfg} />

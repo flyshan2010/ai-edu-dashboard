@@ -24,11 +24,18 @@ import {
   type AuthUser,
   type ClassInfo,
   type CloudStatus,
+  type Course,
   type EssayReview,
   type ExamQuestion,
+  type ResourceItem,
   type Student,
   type Subject,
+  type TeacherProfile,
 } from './useAppStore'
+
+const DEFAULT_TEACHER: TeacherProfile = { name: '王老師', title: '教師', school: '崑山國小' }
+const LS_TEACHER = 'aiedu.teacher.v1'
+const LS_AUX = 'aiedu.aux.v1' // courses + resources（本機模式）
 
 const LS_KEY = 'aiedu.store.v1'
 const LS_SELECTED = 'aiedu.selectedClass'
@@ -122,10 +129,20 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [students, setStudents] = useState<Student[]>([])
   const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([])
   const [essayReviews, setEssayReviews] = useState<EssayReview[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
+  const [resources, setResources] = useState<ResourceItem[]>([])
+  const [teacher, setTeacher] = useState<TeacherProfile>(() => {
+    try {
+      const raw = localStorage.getItem(LS_TEACHER)
+      if (raw) return { ...DEFAULT_TEACHER, ...JSON.parse(raw) }
+    } catch { /* ignore */ }
+    return DEFAULT_TEACHER
+  })
   const [selectedClassId, setSelectedClassIdState] = useState<string | null>(
     loadSelected() ?? seed.selectedClassId,
   )
 
+  const uidRef = useRef<string | null>(null)
   const modeRef = useRef<CloudStatus>('connecting')
   useEffect(() => {
     modeRef.current = cloudStatus
@@ -172,6 +189,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setUser({ uid: fbUser.uid, email: fbUser.email })
+        uidRef.current = fbUser.uid
         await seedCloudIfEmpty()
         clearSubs()
         subsRef.current.push(
@@ -194,9 +212,25 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             setEssayReviews(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<EssayReview, 'id'>) })))
           }),
         )
+        subsRef.current.push(
+          onSnapshot(collection(db, 'courses'), (snap) => {
+            setCourses(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Course, 'id'>) })))
+          }),
+        )
+        subsRef.current.push(
+          onSnapshot(collection(db, 'resources'), (snap) => {
+            setResources(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ResourceItem, 'id'>) })))
+          }),
+        )
+        subsRef.current.push(
+          onSnapshot(doc(db, 'teachers', fbUser.uid), (snap) => {
+            if (snap.exists()) setTeacher({ ...DEFAULT_TEACHER, ...(snap.data() as Partial<TeacherProfile>) })
+          }),
+        )
         setCloudStatus('cloud')
       } else {
         setUser(null)
+        uidRef.current = null
         clearSubs()
         // 若使用者選了本機模式則維持，否則進入待登入
         setCloudStatus((prev) => (prev === 'local' ? 'local' : 'auth'))
@@ -208,15 +242,21 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // ── 教師資料持久化（任何模式皆存本機作快取）──
+  useEffect(() => {
+    try { localStorage.setItem(LS_TEACHER, JSON.stringify(teacher)) } catch { /* ignore */ }
+  }, [teacher])
+
   // ── 本機模式持久化 ──
   useEffect(() => {
     if (cloudStatus !== 'local') return
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({ classes, students, selectedClassId }))
+      localStorage.setItem(LS_AUX, JSON.stringify({ courses, resources }))
     } catch {
       /* ignore */
     }
-  }, [cloudStatus, classes, students, selectedClassId])
+  }, [cloudStatus, classes, students, selectedClassId, courses, resources])
 
   const isCloud = () => modeRef.current === 'cloud'
 
@@ -234,6 +274,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     const local = loadLocal()
     setClasses(local.classes)
     setStudents(local.students)
+    try {
+      const aux = JSON.parse(localStorage.getItem(LS_AUX) ?? '{}')
+      setCourses(Array.isArray(aux.courses) ? aux.courses : [])
+      setResources(Array.isArray(aux.resources) ? aux.resources : [])
+    } catch { /* ignore */ }
     setCloudStatus('local')
   }, [])
 
@@ -333,6 +378,31 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setEssayReviews((prev) => prev.filter((r) => r.id !== id))
   }, [])
 
+  const updateTeacher = useCallback((patch: Partial<TeacherProfile>) => {
+    setTeacher((prev) => ({ ...prev, ...patch }))
+    if (isCloud() && uidRef.current) {
+      void setDoc(doc(db, 'teachers', uidRef.current), patch, { merge: true })
+    }
+  }, [])
+
+  const addCourse = useCallback((c: Omit<Course, 'id'>) => {
+    if (isCloud()) { void setDoc(doc(collection(db, 'courses')), c); return }
+    setCourses((prev) => [{ ...c, id: uid('course') }, ...prev])
+  }, [])
+  const removeCourse = useCallback((id: string) => {
+    if (isCloud()) { void deleteDoc(doc(db, 'courses', id)); return }
+    setCourses((prev) => prev.filter((c) => c.id !== id))
+  }, [])
+
+  const addResource = useCallback((r: Omit<ResourceItem, 'id'>) => {
+    if (isCloud()) { void setDoc(doc(collection(db, 'resources')), r); return }
+    setResources((prev) => [{ ...r, id: uid('res') }, ...prev])
+  }, [])
+  const removeResource = useCallback((id: string) => {
+    if (isCloud()) { void deleteDoc(doc(db, 'resources', id)); return }
+    setResources((prev) => prev.filter((r) => r.id !== id))
+  }, [])
+
   const resetDemo = useCallback(() => {
     const d = demoData()
     if (isCloud()) {
@@ -366,14 +436,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       register,
       signOutUser,
       useLocalMode,
+      teacher,
+      updateTeacher,
       classes,
       students,
       examQuestions,
       essayReviews,
+      courses,
+      resources,
       addExamQuestion,
       removeExamQuestion,
       addEssayReview,
       removeEssayReview,
+      addCourse,
+      removeCourse,
+      addResource,
+      removeResource,
       selectedClassId,
       setSelectedClassId,
       addClass,
@@ -384,7 +462,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       removeStudent,
       resetDemo,
     }),
-    [cloudStatus, user, signIn, register, signOutUser, useLocalMode, classes, students, examQuestions, essayReviews, addExamQuestion, removeExamQuestion, addEssayReview, removeEssayReview, selectedClassId, setSelectedClassId, addClass, updateClass, removeClass, addStudent, updateStudent, removeStudent, resetDemo],
+    [cloudStatus, user, signIn, register, signOutUser, useLocalMode, teacher, updateTeacher, classes, students, examQuestions, essayReviews, courses, resources, addExamQuestion, removeExamQuestion, addEssayReview, removeEssayReview, addCourse, removeCourse, addResource, removeResource, selectedClassId, setSelectedClassId, addClass, updateClass, removeClass, addStudent, updateStudent, removeStudent, resetDemo],
   )
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>

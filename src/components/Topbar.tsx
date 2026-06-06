@@ -11,13 +11,28 @@ interface TopbarProps {
 
 export function Topbar({ active, onSelect }: TopbarProps) {
   const toast = useToast()
-  const { cloudStatus, user, signOutUser } = useAppStore()
+  const { cloudStatus, user, signOutUser, teacher, updateTeacher } = useAppStore()
   const [query, setQuery] = useState('')
   const [openNotif, setOpenNotif] = useState(false)
   const [openUser, setOpenUser] = useState(false)
+  const [openProfile, setOpenProfile] = useState(false)
+  const [draft, setDraft] = useState(teacher)
   const [notifs, setNotifs] = useState(allNotifications)
   const popRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
+
+  function openProfileEditor() {
+    setDraft(teacher)
+    setOpenProfile(true)
+    setOpenUser(false)
+  }
+  function saveProfile() {
+    if (!draft.name.trim()) { toast('請輸入姓名'); return }
+    updateTeacher({ name: draft.name.trim(), title: draft.title.trim(), school: draft.school.trim() })
+    setOpenProfile(false)
+    toast('教師資料已更新')
+  }
+  const avatarChar = teacher.name.trim().charAt(0) || '師'
 
   const unread = notifs.filter((n) => n.unread).length
 
@@ -132,22 +147,25 @@ export function Topbar({ active, onSelect }: TopbarProps) {
         {/* User menu */}
         <div className="relative" ref={userRef}>
           <button onClick={() => setOpenUser((v) => !v)} className="flex items-center gap-2 rounded-xl border border-cyan-400/15 bg-white/[0.03] py-1.5 pl-1.5 pr-2.5 transition hover:border-cyan-400/40">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-neon-cyan to-neon-violet text-sm font-bold text-ink-900">王</span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-neon-cyan to-neon-violet text-sm font-bold text-ink-900">{avatarChar}</span>
             <span className="hidden leading-tight sm:block">
-              <span className="block text-xs font-semibold text-white">王老師</span>
-              <span className="block text-[10px] text-slate-400">教師</span>
+              <span className="block text-xs font-semibold text-white">{teacher.name}</span>
+              <span className="block text-[10px] text-slate-400">{teacher.title}</span>
             </span>
             <Icon name="arrow" width={13} height={13} className="rotate-90 text-slate-500" />
           </button>
           {openUser && (
-            <div className="panel bracket absolute right-0 top-12 z-50 w-60 rounded-2xl border-cyan-400/30 p-2 shadow-glow">
+            <div className="panel absolute right-0 top-12 z-50 w-60 rounded-2xl border-cyan-400/30 p-2 shadow-glow">
               <div className="border-b border-cyan-400/10 px-3 py-2">
-                <p className="text-xs font-semibold text-white">王老師</p>
+                <p className="text-xs font-semibold text-white">{teacher.name} <span className="font-normal text-slate-400">{teacher.title}</span></p>
                 <p className="truncate text-[11px] text-slate-400">{user?.email ?? '本機模式（未登入）'}</p>
                 <span className="mt-1 inline-flex items-center gap-1 text-[10px]" style={{ color: cloudMap.color }}>
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: cloudMap.color }} />{cloudMap.label}
                 </span>
               </div>
+              <button onClick={openProfileEditor} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-300 transition hover:bg-white/5">
+                <Icon name="teacher" width={15} height={15} /> 個人資料
+              </button>
               <button onClick={() => { setOpenUser(false); onSelect('settings') }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-300 transition hover:bg-white/5">
                 <Icon name="gear" width={15} height={15} /> 系統設定
               </button>
@@ -159,6 +177,28 @@ export function Topbar({ active, onSelect }: TopbarProps) {
             </div>
           )}
         </div>
+
+      {/* 個人資料編輯 Modal */}
+      {openProfile && (
+        <div className="fixed inset-0 z-[95] grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setOpenProfile(false)}>
+          <div className="panel w-full max-w-sm rounded-2xl border-cyan-400/30 p-5 shadow-glow" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-bold text-white">編輯個人資料</h3>
+              <button onClick={() => setOpenProfile(false)} className="text-slate-400 hover:text-white"><Icon name="close" width={18} height={18} /></button>
+            </div>
+            <label className="mb-1 block text-xs text-slate-400">姓名</label>
+            <input className="w-full rounded-lg border border-cyan-400/15 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/50" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="王小明" />
+            <label className="mb-1 mt-3 block text-xs text-slate-400">職稱</label>
+            <input className="w-full rounded-lg border border-cyan-400/15 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/50" value={draft.title} onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))} placeholder="教師 / 學年主任…" />
+            <label className="mb-1 mt-3 block text-xs text-slate-400">學校</label>
+            <input className="w-full rounded-lg border border-cyan-400/15 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/50" value={draft.school} onChange={(e) => setDraft((d) => ({ ...d, school: e.target.value }))} placeholder="崑山國小" />
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setOpenProfile(false)} className="rounded-lg border border-cyan-400/20 px-4 py-2 text-sm text-slate-300 transition hover:border-cyan-400/40">取消</button>
+              <button onClick={saveProfile} className="rounded-lg bg-gradient-to-r from-neon-blue to-neon-violet px-5 py-2 text-sm font-bold text-white shadow-glow transition hover:brightness-110">儲存</button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </header>
   )
