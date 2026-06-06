@@ -20,7 +20,11 @@ export interface Student {
   subjects: Record<Subject, number> // 各科成績 0-100
 }
 
+// connecting：嘗試連線中；cloud：已連 Firestore 雲端同步；local：退回本機 localStorage
+export type CloudStatus = 'connecting' | 'cloud' | 'local'
+
 export interface AppStoreValue {
+  cloudStatus: CloudStatus
   classes: ClassInfo[]
   students: Student[]
   selectedClassId: string | null

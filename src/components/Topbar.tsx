@@ -2,6 +2,26 @@ import { useEffect, useRef, useState } from 'react'
 import { notifications as allNotifications } from '../data'
 import { Icon } from './Icons'
 import { useToast } from './toast-context'
+import { useAppStore } from '../store/useAppStore'
+
+function CloudBadge() {
+  const { cloudStatus } = useAppStore()
+  const map = {
+    connecting: { label: '連線中…', color: '#fbbf24', dot: 'bg-neon-amber animate-pulse' },
+    cloud: { label: '雲端同步', color: '#34d399', dot: 'bg-neon-green' },
+    local: { label: '本機模式', color: '#94a3b8', dot: 'bg-slate-400' },
+  }[cloudStatus]
+  return (
+    <span
+      className="hidden items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] sm:flex"
+      style={{ borderColor: `${map.color}55`, color: map.color, background: `${map.color}11` }}
+      title="班級／學生資料儲存狀態"
+    >
+      <span className={`h-2 w-2 rounded-full ${map.dot}`} />
+      {map.label}
+    </span>
+  )
+}
 
 export function Topbar() {
   const toast = useToast()
@@ -39,6 +59,7 @@ export function Topbar() {
 
       {/* Right cluster */}
       <div className="flex items-center gap-3">
+        <CloudBadge />
         <form onSubmit={submitSearch} className="relative hidden md:block">
           <Icon
             name="search"
