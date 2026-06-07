@@ -83,9 +83,10 @@ export interface AppStoreValue {
   register: (email: string, password: string) => Promise<void>
   signOutUser: () => Promise<void>
   useLocalMode: () => void
+  aiProvider: 'claude' | 'gemini'
   aiKey: string
   aiModel: string
-  setAIConfig: (key: string, model: string) => void
+  setAIConfig: (provider: 'claude' | 'gemini', key: string, model: string) => void
   teacher: TeacherProfile
   updateTeacher: (patch: Partial<TeacherProfile>) => void
   classes: ClassInfo[]

@@ -38,7 +38,9 @@ const LS_TEACHER = 'aiedu.teacher.v1'
 const LS_AUX = 'aiedu.aux.v1' // courses + resources（本機模式）
 const LS_AIKEY = 'aiedu.anthropic.key'
 const LS_AIMODEL = 'aiedu.anthropic.model'
-export const DEFAULT_AI_MODEL = 'claude-sonnet-4-5'
+const LS_AIPROVIDER = 'aiedu.ai.provider'
+const DEFAULT_MODELS = { claude: 'claude-sonnet-4-5', gemini: 'gemini-2.0-flash' } as const
+const DEFAULT_AI_MODEL = DEFAULT_MODELS.gemini
 
 const LS_KEY = 'aiedu.store.v1'
 const LS_SELECTED = 'aiedu.selectedClass'
@@ -145,17 +147,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     loadSelected() ?? seed.selectedClassId,
   )
 
+  const [aiProvider, setAiProvider] = useState<'claude' | 'gemini'>(() => {
+    try { return localStorage.getItem(LS_AIPROVIDER) === 'claude' ? 'claude' : 'gemini' } catch { return 'gemini' }
+  })
   const [aiKey, setAiKey] = useState<string>(() => {
     try { return localStorage.getItem(LS_AIKEY) ?? '' } catch { return '' }
   })
   const [aiModel, setAiModel] = useState<string>(() => {
     try { return localStorage.getItem(LS_AIMODEL) || DEFAULT_AI_MODEL } catch { return DEFAULT_AI_MODEL }
   })
-  const setAIConfig = useCallback((key: string, model: string) => {
-    const m = model.trim() || DEFAULT_AI_MODEL
+  const setAIConfig = useCallback((provider: 'claude' | 'gemini', key: string, model: string) => {
+    const m = model.trim() || DEFAULT_MODELS[provider]
+    setAiProvider(provider)
     setAiKey(key.trim())
     setAiModel(m)
     try {
+      localStorage.setItem(LS_AIPROVIDER, provider)
       if (key.trim()) localStorage.setItem(LS_AIKEY, key.trim()); else localStorage.removeItem(LS_AIKEY)
       localStorage.setItem(LS_AIMODEL, m)
     } catch { /* ignore */ }
@@ -455,6 +462,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       register,
       signOutUser,
       useLocalMode,
+      aiProvider,
       aiKey,
       aiModel,
       setAIConfig,
@@ -484,7 +492,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       removeStudent,
       resetDemo,
     }),
-    [cloudStatus, user, signIn, register, signOutUser, useLocalMode, aiKey, aiModel, setAIConfig, teacher, updateTeacher, classes, students, examQuestions, essayReviews, courses, resources, addExamQuestion, removeExamQuestion, addEssayReview, removeEssayReview, addCourse, removeCourse, addResource, removeResource, selectedClassId, setSelectedClassId, addClass, updateClass, removeClass, addStudent, updateStudent, removeStudent, resetDemo],
+    [cloudStatus, user, signIn, register, signOutUser, useLocalMode, aiProvider, aiKey, aiModel, setAIConfig, teacher, updateTeacher, classes, students, examQuestions, essayReviews, courses, resources, addExamQuestion, removeExamQuestion, addEssayReview, removeEssayReview, addCourse, removeCourse, addResource, removeResource, selectedClassId, setSelectedClassId, addClass, updateClass, removeClass, addStudent, updateStudent, removeStudent, resetDemo],
   )
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>

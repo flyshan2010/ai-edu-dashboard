@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Icon } from '../components/Icons'
 import { useAppStore } from '../store/useAppStore'
-import { callClaude, AIError, type ChatTurn } from '../ai/anthropic'
+import { runChat, AIError, type ChatTurn } from '../ai/client'
 
 interface Msg { id: number; role: 'user' | 'ai'; text: string }
 
@@ -20,7 +20,7 @@ function templateReply(q: string): string {
 }
 
 export function AssistantPage() {
-  const { aiKey, aiModel } = useAppStore()
+  const { aiProvider, aiKey, aiModel } = useAppStore()
   const [msgs, setMsgs] = useState<Msg[]>([{ id: 0, role: 'ai', text: aiKey ? '您好，我是 AI 助教（已連線真實 Claude）。請問需要什麼協助？' : '您好，我是 AI 助教。目前為示範模式；到「系統管理 → AI 設定」貼上金鑰即可啟用真實對話。' }])
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -48,7 +48,7 @@ export function AssistantPage() {
         ...history.filter((m) => m.id !== 0).map((m) => ({ role: (m.role === 'ai' ? 'assistant' : 'user') as 'assistant' | 'user', content: m.text })),
         { role: 'user', content: query },
       ]
-      const reply = await callClaude({ key: aiKey, model: aiModel, system: SYSTEM, messages: turns, maxTokens: 2048 })
+      const reply = await runChat(aiProvider, aiKey, aiModel, SYSTEM, turns, 2048)
       seqRef.current += 1
       setMsgs((p) => [...p, { id: seqRef.current, role: 'ai', text: reply }])
     } catch (e) {

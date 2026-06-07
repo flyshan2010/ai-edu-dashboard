@@ -3,7 +3,7 @@ import { Icon, type IconName } from '../components/Icons'
 import { FileDrop } from '../components/FileDrop'
 import { useToast } from '../components/toast-context'
 import { useAppStore } from '../store/useAppStore'
-import { ask, parseJSON, AIError, type AIBlock } from '../ai/anthropic'
+import { runAI, parseJSON, AIError, type AIBlock } from '../ai/client'
 import { parseFiles } from '../ai/files'
 import {
   mdToHtmlBody, downloadDocx, downloadHtml, printToPdf,
@@ -24,7 +24,7 @@ interface Result { key: string; label: string; kind: Kind; md?: string; slides?:
 
 export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
   const toast = useToast()
-  const { addResource, resources, aiKey, aiModel, cloudStatus } = useAppStore()
+  const { addResource, resources, aiProvider, aiKey, aiModel, cloudStatus } = useAppStore()
   const [files, setFiles] = useState<File[]>([])
   const [f, setF] = useState({ subject: '', grade: '', topic: '' })
   const [sel, setSel] = useState<Set<string>>(new Set(['slides']))
@@ -48,7 +48,7 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
     try {
       for (const def of ITEMS.filter((i) => sel.has(i.key))) {
         setBusy(def.label)
-        const text = await ask(aiKey, aiModel, def.sys, ctx, def.kind === 'slides' ? 4096 : 3072)
+        const text = await runAI(aiProvider, aiKey, aiModel, def.sys, ctx, def.kind === 'slides' ? 4096 : 3072)
         const baseTitle = `${f.grade}${f.subject}_${f.topic || def.label}`.replace(/^_+/, '')
         if (def.kind === 'slides') {
           const json = parseJSON<{ deckTitle: string; slides: Slide[] }>(text)

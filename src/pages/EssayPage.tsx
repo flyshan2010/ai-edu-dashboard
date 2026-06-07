@@ -3,7 +3,7 @@ import { Icon } from '../components/Icons'
 import { FileDrop } from '../components/FileDrop'
 import { useToast } from '../components/toast-context'
 import { useAppStore } from '../store/useAppStore'
-import { ask, AIError, type AIBlock } from '../ai/anthropic'
+import { runAI, AIError, type AIBlock } from '../ai/client'
 import { parseFiles } from '../ai/files'
 import { mdToHtmlBody, downloadDocx, downloadHtml, printToPdf } from '../ai/generate'
 
@@ -22,7 +22,7 @@ const SYSTEM = `你是台灣國小作文批改專家。請以繁體中文（台�
 
 export function EssayPage() {
   const toast = useToast()
-  const { essayReviews, addEssayReview, removeEssayReview, addResource, aiKey, aiModel, cloudStatus } = useAppStore()
+  const { essayReviews, addEssayReview, removeEssayReview, addResource, aiProvider, aiKey, aiModel, cloudStatus } = useAppStore()
   const [essayFiles, setEssayFiles] = useState<File[]>([])
   const [tplFiles, setTplFiles] = useState<File[]>([])
   const [meta, setMeta] = useState({ title: '', studentName: '', genre: '自動判斷' })
@@ -46,7 +46,7 @@ export function EssayPage() {
         blocks.push({ type: 'text', text: '以下為批改範本/範文，請依此標準與格式批改：' })
         tpl.forEach((t) => blocks.push(t.block))
       }
-      const md = await ask(aiKey, aiModel, SYSTEM, blocks, 4096)
+      const md = await runAI(aiProvider, aiKey, aiModel, SYSTEM, blocks, 4096)
       setReport(md)
       const level = (md.match(/等第[：:]\s*([^\s，。\n]+)/) || [])[1] ?? '—'
       const title = meta.title.trim() || essayFiles[0].name.replace(/\.[^.]+$/, '')
