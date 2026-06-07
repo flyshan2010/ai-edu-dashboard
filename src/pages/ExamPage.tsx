@@ -22,6 +22,7 @@ export function ExamPage() {
   const [tplFiles, setTplFiles] = useState<File[]>([])
   const [f, setF] = useState({ subject: '', grade: '', topic: '', mode: '定期評量' })
   const [step, setStep] = useState('')
+  const [err, setErr] = useState('')
   const [pack, setPack] = useState<ExamPack | null>(null)
   const [tab, setTab] = useState<'student' | 'teacher' | 'analysis' | 'checklist'>('student')
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }))
@@ -31,7 +32,7 @@ export function ExamPage() {
   async function run() {
     if (!matFiles.length && !f.topic.trim()) { toast('請上傳教材檔，或至少填寫主題'); return }
     if (!aiKey) { toast('尚未設定 AI 金鑰，請到「系統管理 → AI 設定」'); return }
-    setStep('讀取教材'); setPack(null)
+    setStep('讀取教材'); setPack(null); setErr('')
     const ai = (sys: string, blocks: AIBlock[], max: number, json = false) => runAI(aiProvider, aiKey, aiModel, sys, blocks, max, json)
     try {
       const mat = matFiles.length ? (await parseFiles(matFiles)).map((p) => p.block) : []
@@ -76,7 +77,8 @@ export function ExamPage() {
       addResource({ title: `${base}_命題審題檢核表`, type: '試卷', subject: f.subject, grade: f.grade, createdAt: Date.now(), content: checklist, format: 'docx' })
       toast('六合一試卷已生成（6 檔）並存資料庫 ✓')
     } catch (e) {
-      toast(e instanceof AIError ? e.message : '生成失敗，請稍後再試')
+      const m = e instanceof AIError ? e.message : (e instanceof Error ? e.message : '生成失敗，請稍後再試')
+      setErr(m); toast(m)
     } finally { setStep('') }
   }
 
@@ -103,6 +105,7 @@ export function ExamPage() {
       </div>
 
       {!aiKey && <div className="rounded-xl border border-neon-amber/40 bg-neon-amber/10 px-4 py-2 text-xs text-neon-amber">尚未設定 AI 金鑰：請到「系統管理 → AI 設定」。</div>}
+      {err && <div className="rounded-xl border border-neon-pink/40 bg-neon-pink/10 px-4 py-2 text-xs text-neon-pink">⚠️ {err}</div>}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="panel bracket rounded-2xl p-5">

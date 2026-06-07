@@ -3,7 +3,7 @@ import { Icon, type IconName } from '../components/Icons'
 import { FileDrop } from '../components/FileDrop'
 import { useToast } from '../components/toast-context'
 import { useAppStore } from '../store/useAppStore'
-import { runAI, genImage, parseJSON, AIError, type AIBlock } from '../ai/client'
+import { runAI, genImage, parseJSON, type AIBlock } from '../ai/client'
 import { parseFiles } from '../ai/files'
 import {
   mdToHtmlBody, downloadDocx, downloadHtml, printToPdf,
@@ -32,6 +32,7 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
   const [withImages, setWithImages] = useState(false)
   const [busy, setBusy] = useState('')
   const [results, setResults] = useState<Result[]>([])
+  const [err, setErr] = useState('')
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }))
   const toggle = (k: string) => setSel((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n })
 
@@ -39,6 +40,7 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
     if (!files.length && !f.topic.trim()) { toast('請上傳教材檔，或至少填寫主題'); return }
     if (!sel.size) { toast('請至少選一個要生成的項目'); return }
     if (!aiKey) { toast('尚未設定 AI 金鑰，請到「系統管理 → AI 設定」'); return }
+    setErr('')
     const parsed = files.length ? await parseFiles(files) : []
     const ctx: AIBlock[] = [
       { type: 'text', text: `科目：${f.subject || '依教材'}；年段：${f.grade || '依教材'}；主題：${f.topic || '依教材'}。教材如下：` },
@@ -57,11 +59,18 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
           const slides: Slide[] = arr.map((s) => ({ title: s.title, bullets: s.bullets ?? [], notes: s.notes, section: s.section }))
           // 可選：用 Gemini 免費金鑰為每頁生圖（best-effort，失敗該頁略過）
           if (slides.length && withImages && aiProvider === 'gemini' && aiKey) {
+            let imgFail = 0
             for (let i = 0; i < slides.length; i++) {
               setBusy(`簡報配圖 ${i + 1}/${slides.length}`)
               const p = arr[i].imagePrompt || arr[i].image_prompt || `educational illustration about ${slides[i].title}`
-              const img = await genImage(aiProvider, aiKey, p)
-              if (img) slides[i] = { ...slides[i], image: img }
+              try {
+                const img = await genImage(aiProvider, aiKey, p)
+                if (img) slides[i] = { ...slides[i], image: img }
+              } catch (e) {
+                imgFail++
+                setErr(`配圖失敗（已略過 ${imgFail} 頁）：${e instanceof Error ? e.message : '未知錯誤'}`)
+                if (imgFail >= 2) break // 連續失敗就停止，避免空轉/耗額度
+              }
             }
           }
           const deckTitle = json?.deckTitle || `${baseTitle}_簡報`
@@ -81,7 +90,8 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
       }
       toast(`已生成 ${out.length} 項並存資料庫 ✓`)
     } catch (e) {
-      toast(e instanceof AIError ? e.message : '生成失敗')
+      const m = e instanceof Error ? e.message : '生成失敗'
+      setErr(m); toast(m)
     } finally { setBusy('') }
   }
 
@@ -98,7 +108,8 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
         <button onClick={onOpenLibrary} className="rounded-lg border border-cyan-400/20 px-3 py-1.5 text-xs text-cyan-glow transition hover:bg-cyan-400/10">資源庫（{resources.length}）→</button>
       </div>
 
-      {!aiKey && <div className="rounded-xl border border-neon-amber/40 bg-neon-amber/10 px-4 py-2 text-xs text-neon-amber">尚未設定 AI 金鑰：請到「系統管理 → AI 設定」貼上 Anthropic 金鑰。</div>}
+      {!aiKey && <div className="rounded-xl border border-neon-amber/40 bg-neon-amber/10 px-4 py-2 text-xs text-neon-amber">尚未設定 AI 金鑰：請到「系統管理 → AI 設定」貼上金鑰。</div>}
+      {err && <div className="rounded-xl border border-neon-pink/40 bg-neon-pink/10 px-4 py-2 text-xs text-neon-pink">⚠️ {err}</div>}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="panel bracket rounded-2xl p-5">
