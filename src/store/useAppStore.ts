@@ -18,6 +18,7 @@ export interface Student {
   completion: number // 完成作業率 0-100
   activity: number // 活躍度 0-100
   subjects: Record<Subject, number> // 各科成績 0-100
+  points?: number // 班級經營：代幣／積分
 }
 
 // connecting：初始化中；auth：待 Email 登入；cloud：已登入並雲端同步；local：離線本機模式
@@ -71,6 +72,8 @@ export interface ResourceItem {
   subject: string
   grade: string
   createdAt: number
+  content?: string // AI 生成的內容（Markdown），供前台預覽與下載
+  format?: string // 'docx' | 'pptx' | 'html' | 'pdf' | 'six-in-one'
 }
 
 export interface AppStoreValue {
@@ -80,6 +83,9 @@ export interface AppStoreValue {
   register: (email: string, password: string) => Promise<void>
   signOutUser: () => Promise<void>
   useLocalMode: () => void
+  aiKey: string
+  aiModel: string
+  setAIConfig: (key: string, model: string) => void
   teacher: TeacherProfile
   updateTeacher: (patch: Partial<TeacherProfile>) => void
   classes: ClassInfo[]

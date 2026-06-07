@@ -1,10 +1,17 @@
+import { useState } from 'react'
 import { Icon } from '../components/Icons'
 import { useToast } from '../components/toast-context'
 import { useAppStore } from '../store/useAppStore'
+import { ask } from '../ai/anthropic'
+
+const MODEL_OPTIONS = ['claude-sonnet-4-5', 'claude-opus-4-1', 'claude-haiku-4-5', 'claude-3-5-haiku-latest']
 
 export function SettingsPage() {
   const toast = useToast()
-  const { cloudStatus, user, teacher, classes, students, examQuestions, essayReviews, courses, resources, resetDemo, signOutUser } = useAppStore()
+  const { cloudStatus, user, teacher, classes, students, examQuestions, essayReviews, courses, resources, resetDemo, signOutUser, aiKey, aiModel, setAIConfig } = useAppStore()
+  const [keyDraft, setKeyDraft] = useState(aiKey)
+  const [modelDraft, setModelDraft] = useState(aiModel)
+  const [testing, setTesting] = useState(false)
 
   const modeText = { connecting: '連線中', auth: '待登入', cloud: '雲端同步（Firebase Firestore）', local: '本機模式（localStorage）' }[cloudStatus]
 
@@ -55,6 +62,42 @@ export function SettingsPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className={`${card} lg:col-span-2`}>
+          <div className="mb-1 flex items-center gap-2">
+            <Icon name="wand" width={16} height={16} className="text-neon-cyan" />
+            <h3 className="text-sm font-bold text-white">AI 設定（BYOK 自帶金鑰）</h3>
+            <span className={`ml-auto rounded-lg px-2 py-0.5 text-[11px] ${aiKey ? 'bg-neon-green/15 text-neon-green' : 'bg-neon-amber/15 text-neon-amber'}`}>{aiKey ? '已設定金鑰' : '未設定（功能將以示範模式運作）'}</span>
+          </div>
+          <p className="mb-3 text-xs text-slate-400">貼上你的 Anthropic API 金鑰即可啟用「教學套件生成／作文批改／試題生成／AI 助教」的真實 AI。金鑰只存在你的瀏覽器（localStorage），不上傳、不進程式碼庫。</p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[2fr_1fr]">
+            <div>
+              <label className="mb-1 block text-[11px] text-slate-400">Anthropic API 金鑰</label>
+              <input type="password" autoComplete="off" className="w-full rounded-lg border border-cyan-400/15 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/50" value={keyDraft} onChange={(e) => setKeyDraft(e.target.value)} placeholder="sk-ant-..." />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] text-slate-400">模型</label>
+              <input list="ai-models" className="w-full rounded-lg border border-cyan-400/15 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/50" value={modelDraft} onChange={(e) => setModelDraft(e.target.value)} placeholder="claude-sonnet-4-5" />
+              <datalist id="ai-models">{MODEL_OPTIONS.map((m) => <option key={m} value={m} />)}</datalist>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={() => { setAIConfig(keyDraft, modelDraft); toast('AI 設定已儲存') }} className="rounded-lg bg-gradient-to-r from-neon-blue to-neon-violet px-4 py-2 text-xs font-bold text-white shadow-glow transition hover:brightness-110">儲存</button>
+            <button
+              disabled={testing}
+              onClick={async () => {
+                if (!keyDraft.trim()) { toast('請先貼上金鑰'); return }
+                setTesting(true)
+                try { await ask(keyDraft.trim(), modelDraft.trim() || 'claude-sonnet-4-5', '只回覆兩個字：成功', [{ type: 'text', text: '測試連線' }], 16); setAIConfig(keyDraft, modelDraft); toast('連線成功，金鑰可用 ✓') }
+                catch (e) { toast(e instanceof Error ? e.message : '連線失敗') }
+                finally { setTesting(false) }
+              }}
+              className="rounded-lg border border-cyan-400/30 px-4 py-2 text-xs font-semibold text-cyan-glow transition hover:bg-cyan-400/10 disabled:opacity-50"
+            >{testing ? '測試中…' : '測試連線'}</button>
+            {aiKey && <button onClick={() => { setAIConfig('', modelDraft); setKeyDraft(''); toast('已清除金鑰') }} className="rounded-lg border border-neon-pink/40 px-4 py-2 text-xs text-neon-pink transition hover:bg-neon-pink/10">清除金鑰</button>}
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">※ 安全提醒：BYOK 為瀏覽器直連，金鑰存於本機；請勿在公用電腦留存，用量計入你的 Anthropic 帳戶。</p>
         </div>
 
         <div className={`${card} lg:col-span-2`}>

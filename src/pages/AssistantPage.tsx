@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { Icon } from '../components/Icons'
+import { useAppStore } from '../store/useAppStore'
+import { callClaude, AIError, type ChatTurn } from '../ai/anthropic'
 
 interface Msg { id: number; role: 'user' | 'ai'; text: string }
 
@@ -10,54 +12,79 @@ const SUGGESTIONS = [
   '幫我規劃一份素養導向的評量藍圖',
 ]
 
-function reply(q: string): string {
-  if (q.includes('迷思')) return '常見迷思與對策：\n1. 概念混淆 → 用具體實例對比澄清\n2. 程序錯誤 → 拆解步驟並逐步檢核\n3. 過度類化 → 提供反例\n建議搭配形成性評量即時回饋。'
-  if (q.includes('家長') || q.includes('聯絡簿')) return '聯絡簿草稿：\n親愛的家長您好，本週孩子在課堂參與積極，作業完成度良好；建議在家可多鼓勵閱讀與口頭表達。如有需要歡迎與我聯繫。'
-  if (q.includes('評量') || q.includes('藍圖')) return '素養評量藍圖建議：\n· 選擇題 10（記憶/理解）\n· 填充題 5（應用）\n· 問答題 2（分析/評鑑，含情境）\n預估作答 40 分鐘，並附後設認知反思題一題。'
-  return `針對「${q}」的教學建議：\n1. 引起動機：以生活情境提問\n2. 探究活動：分組觀察、記錄與討論\n3. 形成性評量：素養題＋後設認知反思\n可到「教學套件生成」一鍵產出對應簡報與試卷。`
+const SYSTEM = '你是台灣國中小教師的 AI 助教，精通 108 課綱、教學設計、命題、班級經營與親師溝通。請用繁體中文（台灣用語）、條理清楚、可立即落地地回答；必要時用條列。'
+
+function templateReply(q: string): string {
+  if (q.includes('迷思')) return '常見迷思與對策：\n1. 概念混淆 → 用具體實例對比澄清\n2. 程序錯誤 → 拆解步驟逐步檢核\n3. 過度類化 → 提供反例\n（設定 AI 金鑰後可得到更完整的個別化建議）'
+  return `針對「${q}」的建議：\n1. 引起動機：生活情境提問\n2. 探究活動：分組觀察與討論\n3. 形成性評量：素養題＋後設認知反思\n（提示：到「系統管理 → AI 設定」貼上金鑰即可啟用真實 AI 對話）`
 }
 
 export function AssistantPage() {
-  const [msgs, setMsgs] = useState<Msg[]>([{ id: 0, role: 'ai', text: '您好，我是 AI 助教。可以詢問教學設計、命題建議、班級經營或親師溝通～' }])
+  const { aiKey, aiModel } = useAppStore()
+  const [msgs, setMsgs] = useState<Msg[]>([{ id: 0, role: 'ai', text: aiKey ? '您好，我是 AI 助教（已連線真實 Claude）。請問需要什麼協助？' : '您好，我是 AI 助教。目前為示範模式；到「系統管理 → AI 設定」貼上金鑰即可啟用真實對話。' }])
   const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
   const seqRef = useRef(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  function send(q: string) {
+  async function send(q: string) {
     const query = q.trim()
-    if (!query) return
-    seqRef.current += 2
-    const s = seqRef.current
-    setMsgs((prev) => [...prev, { id: s - 1, role: 'user', text: query }, { id: s, role: 'ai', text: reply(query) }])
+    if (!query || busy) return
+    seqRef.current += 1
+    const uid = seqRef.current
+    const history = msgs
+    setMsgs((p) => [...p, { id: uid, role: 'user', text: query }])
     setText('')
+
+    if (!aiKey) {
+      seqRef.current += 1
+      const aid = seqRef.current
+      setMsgs((p) => [...p, { id: aid, role: 'ai', text: templateReply(query) }])
+      return
+    }
+    setBusy(true)
+    try {
+      const turns: ChatTurn[] = [
+        ...history.filter((m) => m.id !== 0).map((m) => ({ role: (m.role === 'ai' ? 'assistant' : 'user') as 'assistant' | 'user', content: m.text })),
+        { role: 'user', content: query },
+      ]
+      const reply = await callClaude({ key: aiKey, model: aiModel, system: SYSTEM, messages: turns, maxTokens: 2048 })
+      seqRef.current += 1
+      setMsgs((p) => [...p, { id: seqRef.current, role: 'ai', text: reply }])
+    } catch (e) {
+      seqRef.current += 1
+      setMsgs((p) => [...p, { id: seqRef.current, role: 'ai', text: '⚠️ ' + (e instanceof AIError ? e.message : '對話失敗，請稍後再試') }])
+    } finally {
+      setBusy(false)
+      setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }), 60)
+    }
   }
 
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="panel bracket flex items-center gap-4 rounded-2xl p-5">
         <span className="grid h-14 w-14 place-items-center rounded-2xl bg-neon-cyan/20 text-neon-cyan"><Icon name="robot" width={28} height={28} /></span>
-        <div><h2 className="text-xl font-bold text-white">AI 助教</h2><p className="text-sm text-slate-400">教學設計、命題、班級經營與親師溝通的即時建議</p></div>
+        <div className="flex-1"><h2 className="text-xl font-bold text-white">AI 助教</h2><p className="text-sm text-slate-400">教學設計、命題、班級經營與親師溝通的即時建議</p></div>
+        <span className={`rounded-lg px-2.5 py-1 text-[11px] ${aiKey ? 'bg-neon-green/15 text-neon-green' : 'bg-neon-amber/15 text-neon-amber'}`}>{aiKey ? '真實 AI' : '示範模式'}</span>
       </div>
 
       <div className="panel bracket flex min-h-0 flex-1 flex-col rounded-2xl p-4">
-        <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+        <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto pr-1">
           {msgs.map((m) => (
             <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[78%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm ${m.role === 'user' ? 'bg-gradient-to-r from-neon-blue to-neon-violet text-white' : 'border border-cyan-400/15 bg-white/[0.03] text-slate-200'}`}>
-                {m.text}
-              </div>
+              <div className={`max-w-[78%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm ${m.role === 'user' ? 'bg-gradient-to-r from-neon-blue to-neon-violet text-white' : 'border border-cyan-400/15 bg-white/[0.03] text-slate-200'}`}>{m.text}</div>
             </div>
           ))}
+          {busy && <div className="flex justify-start"><div className="rounded-2xl border border-cyan-400/15 bg-white/[0.03] px-4 py-2.5 text-sm text-slate-400">AI 思考中…</div></div>}
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
-          {SUGGESTIONS.map((s) => (
-            <button key={s} onClick={() => send(s)} className="rounded-full border border-cyan-400/15 bg-white/[0.02] px-3 py-1 text-[11px] text-slate-300 transition hover:border-cyan-400/40 hover:text-cyan-glow">{s}</button>
-          ))}
+          {SUGGESTIONS.map((s) => <button key={s} onClick={() => send(s)} disabled={busy} className="rounded-full border border-cyan-400/15 bg-white/[0.02] px-3 py-1 text-[11px] text-slate-300 transition hover:border-cyan-400/40 hover:text-cyan-glow disabled:opacity-50">{s}</button>)}
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); send(text) }} className="mt-3 flex gap-2">
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder="輸入你的問題…" className="flex-1 rounded-xl border border-cyan-400/15 bg-ink-800 px-4 py-2.5 text-sm text-slate-100 outline-none focus:border-cyan-400/50" />
-          <button type="submit" className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-neon-blue to-neon-violet px-4 py-2.5 text-sm font-bold text-white shadow-glow transition hover:brightness-110">送出 <Icon name="arrow" width={15} height={15} /></button>
+          <button type="submit" disabled={busy} className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-neon-blue to-neon-violet px-4 py-2.5 text-sm font-bold text-white shadow-glow transition hover:brightness-110 disabled:opacity-50">送出 <Icon name="arrow" width={15} height={15} /></button>
         </form>
       </div>
     </div>

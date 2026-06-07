@@ -36,6 +36,9 @@ import {
 const DEFAULT_TEACHER: TeacherProfile = { name: '王老師', title: '教師', school: '崑山國小' }
 const LS_TEACHER = 'aiedu.teacher.v1'
 const LS_AUX = 'aiedu.aux.v1' // courses + resources（本機模式）
+const LS_AIKEY = 'aiedu.anthropic.key'
+const LS_AIMODEL = 'aiedu.anthropic.model'
+export const DEFAULT_AI_MODEL = 'claude-sonnet-4-5'
 
 const LS_KEY = 'aiedu.store.v1'
 const LS_SELECTED = 'aiedu.selectedClass'
@@ -141,6 +144,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [selectedClassId, setSelectedClassIdState] = useState<string | null>(
     loadSelected() ?? seed.selectedClassId,
   )
+
+  const [aiKey, setAiKey] = useState<string>(() => {
+    try { return localStorage.getItem(LS_AIKEY) ?? '' } catch { return '' }
+  })
+  const [aiModel, setAiModel] = useState<string>(() => {
+    try { return localStorage.getItem(LS_AIMODEL) || DEFAULT_AI_MODEL } catch { return DEFAULT_AI_MODEL }
+  })
+  const setAIConfig = useCallback((key: string, model: string) => {
+    const m = model.trim() || DEFAULT_AI_MODEL
+    setAiKey(key.trim())
+    setAiModel(m)
+    try {
+      if (key.trim()) localStorage.setItem(LS_AIKEY, key.trim()); else localStorage.removeItem(LS_AIKEY)
+      localStorage.setItem(LS_AIMODEL, m)
+    } catch { /* ignore */ }
+  }, [])
 
   const uidRef = useRef<string | null>(null)
   const modeRef = useRef<CloudStatus>('connecting')
@@ -436,6 +455,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       register,
       signOutUser,
       useLocalMode,
+      aiKey,
+      aiModel,
+      setAIConfig,
       teacher,
       updateTeacher,
       classes,
@@ -462,7 +484,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       removeStudent,
       resetDemo,
     }),
-    [cloudStatus, user, signIn, register, signOutUser, useLocalMode, teacher, updateTeacher, classes, students, examQuestions, essayReviews, courses, resources, addExamQuestion, removeExamQuestion, addEssayReview, removeEssayReview, addCourse, removeCourse, addResource, removeResource, selectedClassId, setSelectedClassId, addClass, updateClass, removeClass, addStudent, updateStudent, removeStudent, resetDemo],
+    [cloudStatus, user, signIn, register, signOutUser, useLocalMode, aiKey, aiModel, setAIConfig, teacher, updateTeacher, classes, students, examQuestions, essayReviews, courses, resources, addExamQuestion, removeExamQuestion, addEssayReview, removeEssayReview, addCourse, removeCourse, addResource, removeResource, selectedClassId, setSelectedClassId, addClass, updateClass, removeClass, addStudent, updateStudent, removeStudent, resetDemo],
   )
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>
