@@ -75,6 +75,26 @@ export function geminiAsk(key: string, model: string, system: string, blocks: AI
   return call(key, model, system, [{ role: 'user', parts: blocks.map(blockToPart) }], maxTokens, jsonMode)
 }
 
+// Gemini 生圖（用使用者免費金鑰）；回 data URL，失敗回 null（不丟錯，best-effort）
+export async function geminiImage(key: string, prompt: string): Promise<string | null> {
+  if (!key) return null
+  try {
+    const res = await fetch(`${BASE}/gemini-2.0-flash-preview-image-generation:generateContent?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: `Generate a clean, flat, child-friendly educational illustration (no text in image): ${prompt}` }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }),
+    })
+    if (!res.ok) return null
+    const d = await res.json()
+    const parts = d?.candidates?.[0]?.content?.parts ?? []
+    const img = parts.find((p: { inlineData?: { mimeType?: string; data?: string } }) => p.inlineData?.data)
+    if (!img?.inlineData?.data) return null
+    return `data:${img.inlineData.mimeType || 'image/png'};base64,${img.inlineData.data}`
+  } catch {
+    return null
+  }
+}
+
 export function geminiChat(key: string, model: string, system: string, turns: ChatTurn[], maxTokens = 2048): Promise<string> {
   const contents: GeminiContent[] = turns.map((t) => ({
     role: t.role === 'assistant' ? 'model' : 'user',

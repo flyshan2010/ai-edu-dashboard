@@ -3,11 +3,11 @@ import { Icon, type IconName } from '../components/Icons'
 import { FileDrop } from '../components/FileDrop'
 import { useToast } from '../components/toast-context'
 import { useAppStore } from '../store/useAppStore'
-import { runAI, parseJSON, AIError, type AIBlock } from '../ai/client'
+import { runAI, genImage, parseJSON, AIError, type AIBlock } from '../ai/client'
 import { parseFiles } from '../ai/files'
 import {
   mdToHtmlBody, downloadDocx, downloadHtml, printToPdf,
-  downloadPptx, downloadSlidesHtml, printSlidesPdf, slidesToMd, imageUrl, type Slide,
+  downloadPptx, downloadSlidesHtml, printSlidesPdf, slidesToMd, type Slide,
 } from '../ai/generate'
 
 type Kind = 'slides' | 'md'
@@ -29,6 +29,7 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
   const [f, setF] = useState({ subject: '', grade: '', topic: '' })
   const [sel, setSel] = useState<Set<string>>(new Set(['slides']))
   const [slideFmt, setSlideFmt] = useState<'pptx' | 'pdf' | 'html'>('pptx')
+  const [withImages, setWithImages] = useState(false)
   const [busy, setBusy] = useState('')
   const [results, setResults] = useState<Result[]>([])
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }))
@@ -52,12 +53,17 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
         const baseTitle = `${f.grade}${f.subject}_${f.topic || def.label}`.replace(/^_+/, '')
         if (def.kind === 'slides') {
           const json = parseJSON<{ deckTitle: string; slides: (Slide & { imagePrompt?: string; image_prompt?: string })[] }>(text)
-          const slides: Slide[] = Array.isArray(json?.slides)
-            ? json!.slides.map((s) => {
-                const prompt = s.imagePrompt || s.image_prompt || `clean flat educational illustration about ${s.title}, white background, no text`
-                return { title: s.title, bullets: s.bullets ?? [], notes: s.notes, section: s.section, image: imageUrl(prompt) }
-              })
-            : []
+          const arr = Array.isArray(json?.slides) ? json!.slides : []
+          const slides: Slide[] = arr.map((s) => ({ title: s.title, bullets: s.bullets ?? [], notes: s.notes, section: s.section }))
+          // 可選：用 Gemini 免費金鑰為每頁生圖（best-effort，失敗該頁略過）
+          if (slides.length && withImages && aiProvider === 'gemini' && aiKey) {
+            for (let i = 0; i < slides.length; i++) {
+              setBusy(`簡報配圖 ${i + 1}/${slides.length}`)
+              const p = arr[i].imagePrompt || arr[i].image_prompt || `educational illustration about ${slides[i].title}`
+              const img = await genImage(aiProvider, aiKey, p)
+              if (img) slides[i] = { ...slides[i], image: img }
+            }
+          }
           const deckTitle = json?.deckTitle || `${baseTitle}_簡報`
           if (slides.length) {
             out.push({ key: def.key, label: def.label, kind: 'slides', slides, deckTitle })
@@ -122,6 +128,12 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
                 <button key={fmt} onClick={() => setSlideFmt(fmt)} className={`rounded-lg border px-2.5 py-1 text-[11px] uppercase ${slideFmt === fmt ? 'border-cyan-400/50 bg-cyan-400/10 text-cyan-glow' : 'border-cyan-400/15 text-slate-400'}`}>{fmt}</button>
               ))}
             </div>
+          )}
+          {sel.has('slides') && (
+            <label className="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
+              <input type="checkbox" checked={withImages} onChange={(e) => setWithImages(e.target.checked)} />
+              每頁用 Gemini 生圖（較耗時/耗免費額度；Claude 不支援）
+            </label>
           )}
 
           <button onClick={run} disabled={!!busy} className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-neon-blue to-neon-violet py-2.5 text-sm font-bold text-white shadow-glow transition hover:brightness-110 disabled:opacity-50">{busy ? `生成中：${busy}…` : '③ 一鍵生成'} <Icon name="sparkles" width={15} height={15} /></button>

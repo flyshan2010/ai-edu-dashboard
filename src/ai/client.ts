@@ -1,6 +1,6 @@
 // 供應商無關的 AI 介面：依 provider 路由到 Claude 或 Gemini。
 import { ask as claudeAsk, callClaude, AIError, parseJSON, type AIBlock, type ChatTurn } from './anthropic'
-import { geminiAsk, geminiChat, geminiListModels } from './gemini'
+import { geminiAsk, geminiChat, geminiListModels, geminiImage } from './gemini'
 
 export type AIProvider = 'claude' | 'gemini'
 
@@ -36,6 +36,11 @@ export function runChat(provider: AIProvider, key: string, model: string, system
   return provider === 'gemini'
     ? geminiChat(key, model, system, turns, maxTokens)
     : callClaude({ key, model, system, messages: turns, maxTokens })
+}
+
+// 生圖（目前僅 Gemini；Claude 無 Messages 生圖回 null）
+export function genImage(provider: AIProvider, key: string, prompt: string): Promise<string | null> {
+  return provider === 'gemini' ? geminiImage(key, prompt) : Promise.resolve(null)
 }
 
 export async function testAI(provider: AIProvider, key: string, model: string): Promise<void> {

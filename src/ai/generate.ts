@@ -186,7 +186,7 @@ export async function downloadPptx(deckTitle: string, slides: Slide[]) {
     sl.addText(`${i + 1}. ${s.title}`, { x: 0.5, y: s.section ? 0.5 : 0.35, w: 9, h: 0.8, fontSize: 24, bold: true, color: '1E3A8A', fontFace: 'Noto Sans TC' })
     let hasImg = false
     if (s.image) {
-      try { const data = await urlToDataUrl(s.image); sl.addImage({ data, x: 6.1, y: 1.3, w: 3.4, h: 1.9 }); hasImg = true } catch { /* 圖載入失敗則略過 */ }
+      try { const data = s.image.startsWith('data:') ? s.image : await urlToDataUrl(s.image); sl.addImage({ data, x: 6.1, y: 1.3, w: 3.4, h: 1.9 }); hasImg = true } catch { /* 圖載入失敗則略過 */ }
     }
     sl.addText(s.bullets.map((b) => ({ text: b, options: { bullet: true, fontSize: 16, color: '334155', paraSpaceAfter: 8, fontFace: 'Noto Sans TC' } })),
       { x: 0.7, y: 1.3, w: hasImg ? 5.1 : 8.6, h: 3.8, valign: 'top' })

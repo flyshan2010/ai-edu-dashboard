@@ -45,7 +45,7 @@ export function ExamPage() {
       }
 
       setStep('① 學生題目卷')
-      const studentPaper = await ai('你是台灣國中小六合一試卷命題專家（108 課綱、崑山國小審題標準、素養導向）。請先在最前面寫一行「教材主題：…」確認與教材一致，再產出「學生題目卷」Markdown：含各大題（一、二、三…）、題目與每大題配分；不含答案。', matMsg('請產出學生題目卷。'), 4096)
+      const studentPaper = await ai('你是台灣國中小六合一試卷命題專家（108 課綱、崑山國小審題標準、素養導向）。請先在最前面寫一行「教材主題：…」確認與教材一致，再產出「學生題目卷」Markdown：含各大題（一、二、三…）、題目與每大題配分。【嚴格】這是給學生作答的卷子，絕對不可出現任何答案、注音解答、括號內正解或【答案】字樣；每題後只留作答空格（____ 或（　））。', matMsg('請產出學生題目卷（純題目、無答案）。'), 4096)
 
       setStep('② 教師答案卷')
       const teacherPaper = await ai('你是命題專家。依下方「學生題目卷」，逐題標出標準答案，輸出教師版 Markdown（保留題目，於每題後標【答案】）。' + GROUND, [{ type: 'text', text: '學生題目卷如下：\n\n' + studentPaper }], 4096)
@@ -54,16 +54,19 @@ export function ExamPage() {
       const analysis = await ai('你是命題專家。依下方學生題目卷，輸出「逐題解析與評分尺規」Markdown（含解題思路、迷思澄清、問答題評分尺規、後設認知引導）。' + GROUND, [{ type: 'text', text: '學生題目卷如下：\n\n' + studentPaper }], 4096)
 
       setStep('④ 配分卡與雙向細目表')
-      const tablesText = await ai('依下方學生題目卷整理表格，只輸出 JSON：{"scoreCard":[["題號","題型","配分","正解"],...逐題],"blueprint":[["題型","題數","配分","Bloom 層次","預估時間(分)"],...各題型一列]}。', [{ type: 'text', text: studentPaper }], 2048, true)
+      const tablesText = await ai('依下方「學生題目卷」整理成 JSON，只輸出 JSON：{"scoreCard":[["題號","題型","配分","正解"], ...],"blueprint":[["題型","題數","配分","Bloom 層次","預估時間(分)"], ...]}。【務必】scoreCard 涵蓋卷中每一個大題的「每一小題」各一列（含正解）；blueprint 卷中每一個大題各一列。不要輸出空白列、不要只做第一大題、不要省略。', [{ type: 'text', text: '學生題目卷如下：\n\n' + studentPaper }], 4096, true)
       const tables = parseJSON<{ scoreCard: (string | number)[][]; blueprint: (string | number)[][] }>(tablesText)
+      const cleanRows = (rows?: (string | number)[][]) => (rows ?? []).filter((r) => Array.isArray(r) && r.some((c) => String(c).trim() !== ''))
 
       setStep('⑤ 命題審題檢核表')
-      const checklist = await ai('你是命題專家。輸出「命題及審題檢核表」Markdown（依崑山國小審題標準，逐項為可勾選「□ 項目」：課綱對齊、選項無規律、Fact-Check、配分合計、難易分布、繁中用語等）。', matMsg('請產出命題及審題檢核表。'), 1536)
+      const checklist = await ai('你是台灣國小命題專家。請用「繁體中文」輸出一份「命題及審題檢核表」Markdown，格式為可勾選清單（每行「- [ ] 項目」），涵蓋：課綱對齊、命題依據教材、選項無規律可循、無重複/無暗示、Fact-Check 正確、配分加總正確、難易與認知層次分布、字詞用語為臺灣繁中、版面與作答空間充足、答案卷與配分卡一致。只輸出該檢核表本身，不要英文、不要描述題目結構、不要其他說明。', [{ type: 'text', text: `卷名：${f.grade}${f.subject} ${f.topic} ${f.mode}` }], 2048)
 
+      const sc = cleanRows(tables?.scoreCard)
+      const bp = cleanRows(tables?.blueprint)
       const result: ExamPack = {
         studentPaper, teacherPaper, analysis, checklist,
-        scoreCard: tables?.scoreCard?.length ? tables.scoreCard : [['題號', '題型', '配分', '正解']],
-        blueprint: tables?.blueprint?.length ? tables.blueprint : [['題型', '題數', '配分', 'Bloom 層次', '預估時間(分)']],
+        scoreCard: sc.length ? sc : [['題號', '題型', '配分', '正解']],
+        blueprint: bp.length ? bp : [['題型', '題數', '配分', 'Bloom 層次', '預估時間(分)']],
       }
       setPack(result)
       const base = `${f.grade}${f.subject}_${f.topic || '試卷'}_${f.mode}`.replace(/^_+/, '')
