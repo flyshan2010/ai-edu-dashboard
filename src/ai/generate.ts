@@ -131,7 +131,7 @@ async function urlToDataUrl(url: string): Promise<string> {
 }
 
 // ── 投影片 ──
-export interface Slide { title: string; bullets: string[]; notes?: string; image?: string }
+export interface Slide { title: string; bullets: string[]; notes?: string; image?: string; section?: string }
 
 export function slidesToMd(deckTitle: string, slides: Slide[]): string {
   let md = `# ${deckTitle}\n\n`
@@ -147,6 +147,7 @@ export function slidesToMd(deckTitle: string, slides: Slide[]): string {
 export function downloadSlidesHtml(deckTitle: string, slides: Slide[]) {
   const body = slides.map((s, i) => `<section style="page-break-after:always;min-height:90vh;padding:40px;border-bottom:2px dashed #cbd5e1">
     <div style="font-size:12px;color:#94a3b8">第 ${i + 1} 頁 / 共 ${slides.length} 頁</div>
+    ${s.section ? `<div style="display:inline-block;background:#dbeafe;color:#1d4ed8;font-size:13px;font-weight:700;padding:2px 10px;border-radius:6px;margin-bottom:6px">${s.section.replace(/</g, '&lt;')}</div>` : ''}
     <h1>${s.title.replace(/</g, '&lt;')}</h1>
     ${s.image ? `<img src="${s.image}" alt="" style="float:right;width:42%;border-radius:10px;margin:0 0 12px 16px"/>` : ''}
     <ul style="font-size:20px">${s.bullets.map((b) => `<li>${b.replace(/</g, '&lt;')}</li>`).join('')}</ul>
@@ -157,7 +158,9 @@ export function downloadSlidesHtml(deckTitle: string, slides: Slide[]) {
 export function printSlidesPdf(deckTitle: string, slides: Slide[]) {
   const body = slides.map((s, i) => `<section style="page-break-after:always;padding:24px">
     <div style="font-size:12px;color:#94a3b8">第 ${i + 1} 頁</div>
+    ${s.section ? `<div style="color:#1d4ed8;font-size:13px;font-weight:700">${s.section.replace(/</g, '&lt;')}</div>` : ''}
     <h1>${s.title.replace(/</g, '&lt;')}</h1>
+    ${s.image ? `<img src="${s.image}" alt="" style="float:right;width:40%;border-radius:8px;margin:0 0 10px 14px"/>` : ''}
     <ul style="font-size:20px">${s.bullets.map((b) => `<li>${b.replace(/</g, '&lt;')}</li>`).join('')}</ul></section>`).join('')
   const w = window.open('', '_blank')
   if (!w) return
@@ -179,7 +182,8 @@ export async function downloadPptx(deckTitle: string, slides: Slide[]) {
     const s = slides[i]
     const sl = pptx.addSlide()
     sl.background = { color: 'FFFFFF' }
-    sl.addText(`${i + 1}. ${s.title}`, { x: 0.5, y: 0.35, w: 9, h: 0.8, fontSize: 24, bold: true, color: '1E3A8A', fontFace: 'Noto Sans TC' })
+    if (s.section) sl.addText(s.section, { x: 0.5, y: 0.18, w: 9, h: 0.3, fontSize: 12, bold: true, color: '1D4ED8', fontFace: 'Noto Sans TC' })
+    sl.addText(`${i + 1}. ${s.title}`, { x: 0.5, y: s.section ? 0.5 : 0.35, w: 9, h: 0.8, fontSize: 24, bold: true, color: '1E3A8A', fontFace: 'Noto Sans TC' })
     let hasImg = false
     if (s.image) {
       try { const data = await urlToDataUrl(s.image); sl.addImage({ data, x: 6.1, y: 1.3, w: 3.4, h: 1.9 }); hasImg = true } catch { /* 圖載入失敗則略過 */ }
