@@ -102,8 +102,36 @@ export async function downloadDocx(title: string, md: string) {
   downloadBlob(`${title}.docx`, blob)
 }
 
+// ── Excel（.xlsx）：給配分答案卡、雙向細目表用 ──
+export async function downloadXlsx(filename: string, sheets: { name: string; aoa: (string | number)[][] }[]) {
+  const XLSX = await import('xlsx')
+  const wb = XLSX.utils.book_new()
+  for (const s of sheets) {
+    const ws = XLSX.utils.aoa_to_sheet(s.aoa)
+    XLSX.utils.book_append_sheet(wb, ws, s.name.slice(0, 28) || 'Sheet1')
+  }
+  XLSX.writeFile(wb, `${filename}.xlsx`)
+}
+
+// 免金鑰生圖（Pollinations）：把英文描述轉成圖片 URL
+export function imageUrl(prompt: string): string {
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=768&height=432&nologo=true`
+}
+
+async function urlToDataUrl(url: string): Promise<string> {
+  const r = await fetch(url)
+  if (!r.ok) throw new Error('image fetch failed')
+  const blob = await r.blob()
+  return await new Promise((res, rej) => {
+    const fr = new FileReader()
+    fr.onload = () => res(String(fr.result))
+    fr.onerror = () => rej(new Error('read failed'))
+    fr.readAsDataURL(blob)
+  })
+}
+
 // ── 投影片 ──
-export interface Slide { title: string; bullets: string[]; notes?: string }
+export interface Slide { title: string; bullets: string[]; notes?: string; image?: string }
 
 export function slidesToMd(deckTitle: string, slides: Slide[]): string {
   let md = `# ${deckTitle}\n\n`
@@ -120,6 +148,7 @@ export function downloadSlidesHtml(deckTitle: string, slides: Slide[]) {
   const body = slides.map((s, i) => `<section style="page-break-after:always;min-height:90vh;padding:40px;border-bottom:2px dashed #cbd5e1">
     <div style="font-size:12px;color:#94a3b8">第 ${i + 1} 頁 / 共 ${slides.length} 頁</div>
     <h1>${s.title.replace(/</g, '&lt;')}</h1>
+    ${s.image ? `<img src="${s.image}" alt="" style="float:right;width:42%;border-radius:10px;margin:0 0 12px 16px"/>` : ''}
     <ul style="font-size:20px">${s.bullets.map((b) => `<li>${b.replace(/</g, '&lt;')}</li>`).join('')}</ul>
   </section>`).join('')
   downloadBlob(`${deckTitle}.html`, new Blob([wrapHtml(deckTitle, body)], { type: 'text/html;charset=utf-8' }))
@@ -146,14 +175,19 @@ export async function downloadPptx(deckTitle: string, slides: Slide[]) {
   const cover = pptx.addSlide()
   cover.background = { color: '0B1633' }
   cover.addText(deckTitle, { x: 0.5, y: 2.1, w: 9, h: 1.2, fontSize: 36, bold: true, color: '7DD3FC', align: 'center', fontFace: 'Noto Sans TC' })
-  slides.forEach((s, i) => {
+  for (let i = 0; i < slides.length; i++) {
+    const s = slides[i]
     const sl = pptx.addSlide()
     sl.background = { color: 'FFFFFF' }
     sl.addText(`${i + 1}. ${s.title}`, { x: 0.5, y: 0.35, w: 9, h: 0.8, fontSize: 24, bold: true, color: '1E3A8A', fontFace: 'Noto Sans TC' })
+    let hasImg = false
+    if (s.image) {
+      try { const data = await urlToDataUrl(s.image); sl.addImage({ data, x: 6.1, y: 1.3, w: 3.4, h: 1.9 }); hasImg = true } catch { /* 圖載入失敗則略過 */ }
+    }
     sl.addText(s.bullets.map((b) => ({ text: b, options: { bullet: true, fontSize: 16, color: '334155', paraSpaceAfter: 8, fontFace: 'Noto Sans TC' } })),
-      { x: 0.7, y: 1.3, w: 8.6, h: 3.8, valign: 'top' })
+      { x: 0.7, y: 1.3, w: hasImg ? 5.1 : 8.6, h: 3.8, valign: 'top' })
     if (s.notes) sl.addNotes(s.notes)
-  })
+  }
   const blob = (await pptx.write({ outputType: 'blob' })) as Blob
   downloadBlob(`${deckTitle}.pptx`, blob)
 }

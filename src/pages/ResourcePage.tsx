@@ -7,13 +7,13 @@ import { runAI, parseJSON, AIError, type AIBlock } from '../ai/client'
 import { parseFiles } from '../ai/files'
 import {
   mdToHtmlBody, downloadDocx, downloadHtml, printToPdf,
-  downloadPptx, downloadSlidesHtml, printSlidesPdf, slidesToMd, type Slide,
+  downloadPptx, downloadSlidesHtml, printSlidesPdf, slidesToMd, imageUrl, type Slide,
 } from '../ai/generate'
 
 type Kind = 'slides' | 'md'
 interface ItemDef { key: string; label: string; icon: IconName; kind: Kind; sys: string }
 const ITEMS: ItemDef[] = [
-  { key: 'slides', label: '教學簡報', icon: 'ppt', kind: 'slides', sys: '你是教學簡報設計師。依教材輸出 JSON：{"deckTitle":"標題","slides":[{"title":"頁標題","bullets":["重點"],"notes":"講者備註"}]}，8–12 張，繁體中文（台灣用語），結構：封面→學習目標→核心概念數頁→活動→總結。只輸出 JSON，勿加說明。' },
+  { key: 'slides', label: '教學簡報', icon: 'ppt', kind: 'slides', sys: '你是教學簡報設計師。請先仔細閱讀上傳教材，依「教材實際的各章節／各節重點」逐節規劃投影片，內容必須具體取自教材（概念、定義、例子、步驟），不要空泛大綱。輸出 JSON：{"deckTitle":"標題","slides":[{"title":"頁標題","bullets":["該節重點（具體、取自教材）"],"notes":"講者備註","imagePrompt":"a clean flat educational illustration about <該頁主題>, white background, no text"}]}。規則：封面 1 頁→學習目標 1 頁→依教材逐節各 1–2 頁（涵蓋所有主要小節）→總結 1 頁；每頁 bullets 3–5 點；總數 8–16 張；title/bullets/notes 用繁體中文（台灣用語），imagePrompt 一律用英文且具體描述該頁主題。只輸出 JSON。' },
   { key: 'infographic', label: '資訊圖卡文案', icon: 'grid', kind: 'md', sys: '你是資訊圖卡設計師。依教材輸出一張資訊圖卡的文案 Markdown：主標、3–5 個重點區塊（每塊標題+一句話+圖示建議）、底部一句總結。繁體中文。' },
   { key: 'video', label: '教學影片腳本', icon: 'video', kind: 'md', sys: '你是教學影片編劇。依教材輸出 3–5 分鐘教學影片腳本 Markdown：分鏡表（時間｜畫面｜旁白｜字幕），繁體中文。' },
   { key: 'podcast', label: 'Podcast 腳本', icon: 'mic', kind: 'md', sys: '你是教育 Podcast 編劇。依教材輸出雙人對談 Podcast 腳本 Markdown（主持人＋來賓，含開場、3 段主題、總結），繁體中文、口語自然。' },
@@ -51,8 +51,10 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
         const text = await runAI(aiProvider, aiKey, aiModel, def.sys, ctx, def.kind === 'slides' ? 8192 : 3072, def.kind === 'slides')
         const baseTitle = `${f.grade}${f.subject}_${f.topic || def.label}`.replace(/^_+/, '')
         if (def.kind === 'slides') {
-          const json = parseJSON<{ deckTitle: string; slides: Slide[] }>(text)
-          const slides = Array.isArray(json?.slides) ? json!.slides : []
+          const json = parseJSON<{ deckTitle: string; slides: (Slide & { imagePrompt?: string })[] }>(text)
+          const slides: Slide[] = Array.isArray(json?.slides)
+            ? json!.slides.map((s) => ({ title: s.title, bullets: s.bullets ?? [], notes: s.notes, image: s.imagePrompt ? imageUrl(s.imagePrompt) : undefined }))
+            : []
           const deckTitle = json?.deckTitle || `${baseTitle}_簡報`
           if (slides.length) {
             out.push({ key: def.key, label: def.label, kind: 'slides', slides, deckTitle })
