@@ -1,16 +1,21 @@
 // 供應商無關的 AI 介面：依 provider 路由到 Claude 或 Gemini。
 import { ask as claudeAsk, callClaude, AIError, parseJSON, type AIBlock, type ChatTurn } from './anthropic'
-import { geminiAsk, geminiChat } from './gemini'
+import { geminiAsk, geminiChat, geminiListModels } from './gemini'
 
 export type AIProvider = 'claude' | 'gemini'
 
 export const PROVIDER_MODELS: Record<AIProvider, string[]> = {
   claude: ['claude-sonnet-4-5', 'claude-opus-4-1', 'claude-haiku-4-5'],
-  gemini: ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-flash'],
+  gemini: ['gemini-flash-latest', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'],
 }
 export const DEFAULT_MODEL: Record<AIProvider, string> = {
   claude: 'claude-sonnet-4-5',
-  gemini: 'gemini-2.0-flash',
+  gemini: 'gemini-flash-latest',
+}
+
+// 偵測金鑰可用模型（目前僅 Gemini）
+export function listModels(provider: AIProvider, key: string): Promise<string[]> {
+  return provider === 'gemini' ? geminiListModels(key) : Promise.resolve(PROVIDER_MODELS.claude)
 }
 export const PROVIDER_LABEL: Record<AIProvider, string> = {
   claude: 'Claude（付費金鑰）',
@@ -34,7 +39,9 @@ export function runChat(provider: AIProvider, key: string, model: string, system
 }
 
 export async function testAI(provider: AIProvider, key: string, model: string): Promise<void> {
-  await runAI(provider, key, model, '只回覆兩個字：成功', [{ type: 'text', text: '測試連線' }], 16)
+  // Gemini：用 ListModels 驗證金鑰（避免 thinking 模型在小 token 下回空字串）
+  if (provider === 'gemini') { await geminiListModels(key); return }
+  await runAI(provider, key, model, '只回覆兩個字：成功', [{ type: 'text', text: '測試連線' }], 64)
 }
 
 export { AIError, parseJSON, type AIBlock, type ChatTurn }

@@ -47,6 +47,30 @@ async function call(key: string, model: string, system: string | undefined, cont
   return text
 }
 
+// 用金鑰列出「可用且支援 generateContent」的模型（驗證金鑰 + 取得最新清單）
+export async function geminiListModels(key: string): Promise<string[]> {
+  if (!key) throw new AIError('尚未設定 Gemini 金鑰')
+  let res: Response
+  try {
+    res = await fetch(`${BASE}?key=${encodeURIComponent(key)}&pageSize=200`, { headers: { 'content-type': 'application/json' } })
+  } catch {
+    throw new AIError('無法連線到 Gemini API（請檢查網路）')
+  }
+  if (!res.ok) {
+    let detail = ''
+    try { const j = await res.json(); detail = j?.error?.message ?? '' } catch { /* ignore */ }
+    if (res.status === 400 || res.status === 403) throw new AIError('Gemini 金鑰無效或未開通（請至 aistudio.google.com/apikey 確認）')
+    throw new AIError(`Gemini 列出模型失敗（${res.status}）${detail ? '：' + detail : ''}`)
+  }
+  const data = await res.json()
+  const models: string[] = (data?.models ?? [])
+    .filter((m: { supportedGenerationMethods?: string[] }) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
+    .map((m: { name: string }) => m.name.replace(/^models\//, ''))
+    .filter((id: string) => id.startsWith('gemini'))
+  // 偏好較新的 flash/pro 排前面
+  return models.sort((a, b) => b.localeCompare(a, 'en', { numeric: true }))
+}
+
 export function geminiAsk(key: string, model: string, system: string, blocks: AIBlock[], maxTokens = 4096): Promise<string> {
   return call(key, model, system, [{ role: 'user', parts: blocks.map(blockToPart) }], maxTokens)
 }

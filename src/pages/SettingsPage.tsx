@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Icon } from '../components/Icons'
 import { useToast } from '../components/toast-context'
 import { useAppStore } from '../store/useAppStore'
-import { testAI, PROVIDER_MODELS, PROVIDER_LABEL, KEY_HELP, DEFAULT_MODEL, type AIProvider } from '../ai/client'
+import { testAI, listModels, PROVIDER_MODELS, PROVIDER_LABEL, KEY_HELP, DEFAULT_MODEL, type AIProvider } from '../ai/client'
 
 export function SettingsPage() {
   const toast = useToast()
@@ -11,7 +11,9 @@ export function SettingsPage() {
   const [keyDraft, setKeyDraft] = useState(aiKey)
   const [modelDraft, setModelDraft] = useState(aiModel)
   const [testing, setTesting] = useState(false)
-  const pickProvider = (p: AIProvider) => { setProviderDraft(p); if (!PROVIDER_MODELS[p].includes(modelDraft)) setModelDraft(DEFAULT_MODEL[p]) }
+  const [detected, setDetected] = useState<string[]>([])
+  const pickProvider = (p: AIProvider) => { setProviderDraft(p); setDetected([]); if (!PROVIDER_MODELS[p].includes(modelDraft)) setModelDraft(DEFAULT_MODEL[p]) }
+  const modelOptions = detected.length ? detected : PROVIDER_MODELS[providerDraft]
 
   const modeText = { connecting: '連線中', auth: '待登入', cloud: '雲端同步（Firebase Firestore）', local: '本機模式（localStorage）' }[cloudStatus]
 
@@ -85,7 +87,7 @@ export function SettingsPage() {
             <div>
               <label className="mb-1 block text-[11px] text-slate-400">模型</label>
               <input list="ai-models" className="w-full rounded-lg border border-cyan-400/15 bg-ink-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/50" value={modelDraft} onChange={(e) => setModelDraft(e.target.value)} placeholder={DEFAULT_MODEL[providerDraft]} />
-              <datalist id="ai-models">{PROVIDER_MODELS[providerDraft].map((m) => <option key={m} value={m} />)}</datalist>
+              <datalist id="ai-models">{modelOptions.map((m) => <option key={m} value={m} />)}</datalist>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -101,6 +103,24 @@ export function SettingsPage() {
               }}
               className="rounded-lg border border-cyan-400/30 px-4 py-2 text-xs font-semibold text-cyan-glow transition hover:bg-cyan-400/10 disabled:opacity-50"
             >{testing ? '測試中…' : '測試連線'}</button>
+            {providerDraft === 'gemini' && (
+              <button
+                disabled={testing}
+                onClick={async () => {
+                  if (!keyDraft.trim()) { toast('請先貼上金鑰'); return }
+                  setTesting(true)
+                  try {
+                    const ms = await listModels('gemini', keyDraft.trim())
+                    setDetected(ms)
+                    const best = ms.find((m) => m.includes('flash-latest')) || ms.find((m) => /flash/.test(m)) || ms[0]
+                    if (best) setModelDraft(best)
+                    toast(`偵測到 ${ms.length} 個可用模型，已選 ${best ?? '—'}`)
+                  } catch (e) { toast(e instanceof Error ? e.message : '偵測失敗') }
+                  finally { setTesting(false) }
+                }}
+                className="rounded-lg border border-cyan-400/30 px-4 py-2 text-xs font-semibold text-cyan-glow transition hover:bg-cyan-400/10 disabled:opacity-50"
+              >偵測可用模型</button>
+            )}
             {aiKey && <button onClick={() => { setAIConfig(providerDraft, '', modelDraft); setKeyDraft(''); toast('已清除金鑰') }} className="rounded-lg border border-neon-pink/40 px-4 py-2 text-xs text-neon-pink transition hover:bg-neon-pink/10">清除金鑰</button>}
           </div>
           <p className="mt-2 text-[11px] text-slate-500">※ 金鑰存於本機瀏覽器、用量計入你自己的帳戶；公用電腦請用後清除。Gemini 免費額度即可批改作文與出卷。</p>

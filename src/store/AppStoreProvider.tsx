@@ -39,8 +39,10 @@ const LS_AUX = 'aiedu.aux.v1' // courses + resources（本機模式）
 const LS_AIKEY = 'aiedu.anthropic.key'
 const LS_AIMODEL = 'aiedu.anthropic.model'
 const LS_AIPROVIDER = 'aiedu.ai.provider'
-const DEFAULT_MODELS = { claude: 'claude-sonnet-4-5', gemini: 'gemini-2.0-flash' } as const
+const DEFAULT_MODELS = { claude: 'claude-sonnet-4-5', gemini: 'gemini-flash-latest' } as const
 const DEFAULT_AI_MODEL = DEFAULT_MODELS.gemini
+// 已淘汰／易失敗的舊預設，載入時自動遷移到最新 alias
+const STALE_MODELS = new Set(['gemini-2.0-flash', 'gemini-1.5-flash', 'claude-3-5-haiku-latest'])
 
 const LS_KEY = 'aiedu.store.v1'
 const LS_SELECTED = 'aiedu.selectedClass'
@@ -154,7 +156,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     try { return localStorage.getItem(LS_AIKEY) ?? '' } catch { return '' }
   })
   const [aiModel, setAiModel] = useState<string>(() => {
-    try { return localStorage.getItem(LS_AIMODEL) || DEFAULT_AI_MODEL } catch { return DEFAULT_AI_MODEL }
+    try {
+      const saved = localStorage.getItem(LS_AIMODEL)
+      if (!saved || STALE_MODELS.has(saved)) return DEFAULT_AI_MODEL
+      return saved
+    } catch { return DEFAULT_AI_MODEL }
   })
   const setAIConfig = useCallback((provider: 'claude' | 'gemini', key: string, model: string) => {
     const m = model.trim() || DEFAULT_MODELS[provider]
