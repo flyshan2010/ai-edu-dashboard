@@ -12,24 +12,31 @@ export function downloadBlob(filename: string, blob: Blob) {
   setTimeout(() => URL.revokeObjectURL(url), 1500)
 }
 
-// ── 極簡 Markdown → HTML（標題/清單/粗體/段落/水平線） ──
-function inline(s: string): string {
+// 清掉 AI 偶爾輸出的 HTML 標籤／實體（如 &emsp; &nbsp; <br>），改為一般空白
+export function cleanMd(s: string): string {
   return s
+    .replace(/&(?:emsp|ensp|nbsp|thinsp|#8195|#8194|#160);/g, '　')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+}
+
+// ── 極簡 Markdown → HTML（標題/清單/粗體/段落/水平線/表格列） ──
+function inline(s: string): string {
+  return cleanMd(s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
 }
 
 export function mdToHtmlBody(md: string): string {
-  const lines = md.split('\n')
+  const lines = cleanMd(md).split('\n')
   let html = ''
   let inList = false
   const closeList = () => { if (inList) { html += '</ul>'; inList = false } }
   for (const raw of lines) {
     const line = raw.trimEnd()
-    if (/^###\s+/.test(line)) { closeList(); html += `<h3>${inline(line.replace(/^###\s+/, ''))}</h3>` }
-    else if (/^##\s+/.test(line)) { closeList(); html += `<h2>${inline(line.replace(/^##\s+/, ''))}</h2>` }
-    else if (/^#\s+/.test(line)) { closeList(); html += `<h1>${inline(line.replace(/^#\s+/, ''))}</h1>` }
+    const h = line.match(/^(#{1,6})\s+(.*)/)
+    if (h) { closeList(); const lvl = Math.min(h[1].length, 4); html += `<h${lvl}>${inline(h[2])}</h${lvl}>` }
     else if (/^[-*]\s+/.test(line)) { if (!inList) { html += '<ul>'; inList = true } html += `<li>${inline(line.replace(/^[-*]\s+/, ''))}</li>` }
     else if (/^(-{3,}|={3,})$/.test(line)) { closeList(); html += '<hr/>' }
     else if (line === '') { closeList() }
@@ -49,6 +56,7 @@ body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;ma
 h1{font-size:26px;border-bottom:3px solid #2563eb;padding-bottom:8px;color:#1e3a8a}
 h2{font-size:20px;color:#1d4ed8;margin-top:24px;border-left:4px solid #2563eb;padding-left:10px}
 h3{font-size:16px;color:#374151;margin-top:18px}
+h4{font-size:14px;color:#475569;margin-top:14px}
 ul{padding-left:22px} li{margin:4px 0}
 code{background:#f1f5f9;padding:1px 5px;border-radius:4px}
 hr{border:none;border-top:1px solid #e5e7eb;margin:18px 0}
@@ -73,18 +81,18 @@ export function printToPdf(title: string, md: string) {
 // Word .docx（lazy docx）
 export async function downloadDocx(title: string, md: string) {
   const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx')
+  const HEADINGS = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4]
   const runs = (s: string) => {
-    const parts = s.split(/(\*\*.+?\*\*)/g).filter(Boolean)
+    const parts = cleanMd(s).split(/(\*\*.+?\*\*)/g).filter(Boolean)
     return parts.map((p) => p.startsWith('**') && p.endsWith('**')
       ? new TextRun({ text: p.slice(2, -2), bold: true })
       : new TextRun(p))
   }
   const paras: InstanceType<typeof Paragraph>[] = []
-  for (const raw of md.split('\n')) {
+  for (const raw of cleanMd(md).split('\n')) {
     const line = raw.trimEnd()
-    if (/^###\s+/.test(line)) paras.push(new Paragraph({ heading: HeadingLevel.HEADING_3, children: runs(line.replace(/^###\s+/, '')) }))
-    else if (/^##\s+/.test(line)) paras.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: runs(line.replace(/^##\s+/, '')) }))
-    else if (/^#\s+/.test(line)) paras.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: runs(line.replace(/^#\s+/, '')) }))
+    const h = line.match(/^(#{1,6})\s+(.*)/)
+    if (h) paras.push(new Paragraph({ heading: HEADINGS[Math.min(h[1].length, 4) - 1], children: runs(h[2]) }))
     else if (/^[-*]\s+/.test(line)) paras.push(new Paragraph({ bullet: { level: 0 }, children: runs(line.replace(/^[-*]\s+/, '')) }))
     else if (line === '') paras.push(new Paragraph({ children: [] }))
     else paras.push(new Paragraph({ children: runs(line) }))

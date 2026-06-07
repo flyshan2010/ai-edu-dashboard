@@ -26,9 +26,9 @@ export const KEY_HELP: Record<AIProvider, string> = {
   gemini: 'aistudio.google.com/apikey（免費、免綁卡）',
 }
 
-// 單輪：system + 一則使用者訊息（可含檔案 blocks）
-export function runAI(provider: AIProvider, key: string, model: string, system: string, blocks: AIBlock[], maxTokens?: number): Promise<string> {
-  return provider === 'gemini' ? geminiAsk(key, model, system, blocks, maxTokens) : claudeAsk(key, model, system, blocks, maxTokens)
+// 單輪：system + 一則使用者訊息（可含檔案 blocks）。json=true 時要求模型輸出純 JSON。
+export function runAI(provider: AIProvider, key: string, model: string, system: string, blocks: AIBlock[], maxTokens?: number, json = false): Promise<string> {
+  return provider === 'gemini' ? geminiAsk(key, model, system, blocks, maxTokens, json) : claudeAsk(key, model, system, blocks, maxTokens)
 }
 
 // 多輪對話

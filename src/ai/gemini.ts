@@ -14,7 +14,7 @@ function blockToPart(b: AIBlock): GeminiPart {
 
 interface GeminiContent { role: 'user' | 'model'; parts: GeminiPart[] }
 
-async function call(key: string, model: string, system: string | undefined, contents: GeminiContent[], maxTokens: number): Promise<string> {
+async function call(key: string, model: string, system: string | undefined, contents: GeminiContent[], maxTokens: number, jsonMode = false): Promise<string> {
   if (!key) throw new AIError('尚未設定 Gemini 金鑰（請至「系統管理 → AI 設定」貼上免費金鑰）')
   let res: Response
   try {
@@ -24,7 +24,7 @@ async function call(key: string, model: string, system: string | undefined, cont
       body: JSON.stringify({
         ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
         contents,
-        generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
+        generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7, ...(jsonMode ? { responseMimeType: 'application/json' } : {}) },
       }),
     })
   } catch {
@@ -71,8 +71,8 @@ export async function geminiListModels(key: string): Promise<string[]> {
   return models.sort((a, b) => b.localeCompare(a, 'en', { numeric: true }))
 }
 
-export function geminiAsk(key: string, model: string, system: string, blocks: AIBlock[], maxTokens = 4096): Promise<string> {
-  return call(key, model, system, [{ role: 'user', parts: blocks.map(blockToPart) }], maxTokens)
+export function geminiAsk(key: string, model: string, system: string, blocks: AIBlock[], maxTokens = 4096, jsonMode = false): Promise<string> {
+  return call(key, model, system, [{ role: 'user', parts: blocks.map(blockToPart) }], maxTokens, jsonMode)
 }
 
 export function geminiChat(key: string, model: string, system: string, turns: ChatTurn[], maxTokens = 2048): Promise<string> {

@@ -48,14 +48,20 @@ export function ResourcePage({ onOpenLibrary }: { onOpenLibrary: () => void }) {
     try {
       for (const def of ITEMS.filter((i) => sel.has(i.key))) {
         setBusy(def.label)
-        const text = await runAI(aiProvider, aiKey, aiModel, def.sys, ctx, def.kind === 'slides' ? 4096 : 3072)
+        const text = await runAI(aiProvider, aiKey, aiModel, def.sys, ctx, def.kind === 'slides' ? 8192 : 3072, def.kind === 'slides')
         const baseTitle = `${f.grade}${f.subject}_${f.topic || def.label}`.replace(/^_+/, '')
         if (def.kind === 'slides') {
           const json = parseJSON<{ deckTitle: string; slides: Slide[] }>(text)
-          const slides = json?.slides ?? []
+          const slides = Array.isArray(json?.slides) ? json!.slides : []
           const deckTitle = json?.deckTitle || `${baseTitle}_簡報`
-          out.push({ key: def.key, label: def.label, kind: 'slides', slides, deckTitle })
-          addResource({ title: deckTitle, type: '簡報', subject: f.subject.trim(), grade: f.grade.trim(), createdAt: Date.now(), content: slidesToMd(deckTitle, slides), format: slideFmt })
+          if (slides.length) {
+            out.push({ key: def.key, label: def.label, kind: 'slides', slides, deckTitle })
+            addResource({ title: deckTitle, type: '簡報', subject: f.subject.trim(), grade: f.grade.trim(), createdAt: Date.now(), content: slidesToMd(deckTitle, slides), format: slideFmt })
+          } else {
+            // JSON 解析失敗 → 以文字方式呈現，避免空白
+            out.push({ key: def.key, label: `${def.label}（文字稿）`, kind: 'md', md: text || '（生成失敗，請重試或換模型）' })
+            addResource({ title: `${baseTitle}_簡報`, type: '簡報', subject: f.subject.trim(), grade: f.grade.trim(), createdAt: Date.now(), content: text, format: 'md' })
+          }
         } else {
           out.push({ key: def.key, label: def.label, kind: 'md', md: text })
           addResource({ title: `${baseTitle}_${def.label}`, type: def.label, subject: f.subject.trim(), grade: f.grade.trim(), createdAt: Date.now(), content: text, format: 'docx' })
